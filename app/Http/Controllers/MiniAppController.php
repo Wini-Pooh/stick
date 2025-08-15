@@ -402,7 +402,13 @@ class MiniAppController extends Controller
         try {
             $botToken = env('TELEGRAM_BOT_TOKEN');
             
+            Log::info('Getting user photo', [
+                'user_id' => $userId,
+                'bot_token_set' => !empty($botToken)
+            ]);
+            
             if (!$botToken) {
+                Log::error('Bot token not configured');
                 return response()->json([
                     'success' => false,
                     'error' => 'Bot token not configured'
@@ -410,44 +416,121 @@ class MiniAppController extends Controller
             }
             
             // Получаем фотографии профиля пользователя
-            $response = Http::get("https://api.telegram.org/bot{$botToken}/getUserProfilePhotos", [
+            $photosUrl = "https://api.telegram.org/bot{$botToken}/getUserProfilePhotos";
+            $photosParams = [
                 'user_id' => $userId,
-                'limit' => 1
+                'limit' => 1,
+                'offset' => 0
+            ];
+            
+            Log::info('Requesting user photos', [
+                'url' => $photosUrl,
+                'params' => $photosParams
+            ]);
+            
+            $response = Http::timeout(30)->get($photosUrl, $photosParams);
+            
+            Log::info('Photos API response', [
+                'status' => $response->status(),
+                'response' => $response->json()
             ]);
             
             if (!$response->successful()) {
+                Log::error('Failed to get user photos', [
+                    'status' => $response->status(),
+                    'response' => $response->body()
+                ]);
+                
                 return response()->json([
                     'success' => false,
-                    'error' => 'Failed to get user photos'
+                    'error' => 'Failed to get user photos',
+                    'status' => $response->status(),
+                    'telegram_error' => $response->json()
                 ], 400);
             }
             
             $data = $response->json();
             
-            if (!isset($data['result']['photos'][0][0]['file_id'])) {
+            if (!$data['ok']) {
+                Log::error('Telegram API returned not ok', [
+                    'response' => $data
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Telegram API error',
+                    'telegram_error' => $data
+                ], 400);
+            }
+            
+            if (empty($data['result']['photos']) || empty($data['result']['photos'][0])) {
+                Log::info('No profile photos found for user', ['user_id' => $userId]);
+                
                 return response()->json([
                     'success' => false,
                     'error' => 'No profile photo found'
                 ], 404);
             }
             
-            $fileId = $data['result']['photos'][0][0]['file_id'];
+            // Берем фото наибольшего размера
+            $photoSizes = $data['result']['photos'][0];
+            $largestPhoto = end($photoSizes); // Последний элемент - самый большой
+            $fileId = $largestPhoto['file_id'];
+            
+            Log::info('Found photo', [
+                'file_id' => $fileId,
+                'sizes_count' => count($photoSizes),
+                'largest_size' => $largestPhoto
+            ]);
             
             // Получаем информацию о файле
-            $fileResponse = Http::get("https://api.telegram.org/bot{$botToken}/getFile", [
-                'file_id' => $fileId
+            $fileUrl = "https://api.telegram.org/bot{$botToken}/getFile";
+            $fileParams = ['file_id' => $fileId];
+            
+            Log::info('Getting file info', [
+                'url' => $fileUrl,
+                'params' => $fileParams
+            ]);
+            
+            $fileResponse = Http::timeout(30)->get($fileUrl, $fileParams);
+            
+            Log::info('File API response', [
+                'status' => $fileResponse->status(),
+                'response' => $fileResponse->json()
             ]);
             
             if (!$fileResponse->successful()) {
+                Log::error('Failed to get file info', [
+                    'status' => $fileResponse->status(),
+                    'response' => $fileResponse->body()
+                ]);
+                
                 return response()->json([
                     'success' => false,
-                    'error' => 'Failed to get file info'
+                    'error' => 'Failed to get file info',
+                    'status' => $fileResponse->status()
                 ], 400);
             }
             
             $fileData = $fileResponse->json();
             
+            if (!$fileData['ok']) {
+                Log::error('File API returned not ok', [
+                    'response' => $fileData
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'error' => 'File API error',
+                    'telegram_error' => $fileData
+                ], 400);
+            }
+            
             if (!isset($fileData['result']['file_path'])) {
+                Log::error('File path not found in response', [
+                    'response' => $fileData
+                ]);
+                
                 return response()->json([
                     'success' => false,
                     'error' => 'File path not found'
@@ -457,18 +540,35 @@ class MiniAppController extends Controller
             $filePath = $fileData['result']['file_path'];
             $photoUrl = "https://api.telegram.org/file/bot{$botToken}/{$filePath}";
             
+            Log::info('Photo URL generated', [
+                'photo_url' => $photoUrl,
+                'file_path' => $filePath
+            ]);
+            
             return response()->json([
                 'success' => true,
                 'photo_url' => $photoUrl,
-                'file_id' => $fileId
+                'file_id' => $fileId,
+                'file_path' => $filePath,
+                'debug' => [
+                    'photos_count' => count($data['result']['photos']),
+                    'sizes_count' => count($photoSizes),
+                    'largest_photo' => $largestPhoto
+                ]
             ]);
             
         } catch (\Exception $e) {
-            Log::error('Error getting user photo: ' . $e->getMessage());
+            Log::error('Exception in getUserPhoto', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'error' => 'Internal server error',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => basename($e->getFile())
             ], 500);
         }
     }
