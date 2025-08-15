@@ -7,156 +7,142 @@
     <title>Змейка | Telegram Mini App</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        /* Высокоприоритетные стили для перебивания Telegram стилей */
-        html, html body {
-            margin: 0 !important;
-            padding: 0 !important;
-            box-sizing: border-box !important;
-            touch-action: none !important;
-            -webkit-touch-callout: none !important;
-            -webkit-user-select: none !important;
-            -khtml-user-select: none !important;
-            -moz-user-select: none !important;
-            -ms-user-select: none !important;
-            user-select: none !important;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: none;
         }
         
-        html body.miniapp-game {
-            background-color: var(--tg-theme-bg-color, #000000) !important;
-            color: var(--tg-theme-text-color, #ffffff) !important;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
-            overscroll-behavior: contain !important;
-            overflow: hidden !important;
-            position: fixed !important;
-            width: 100% !important;
-            height: 100% !important;
-            min-height: 100vh !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
+        body {
+            background-color: var(--tg-theme-bg-color, #000000);
+            color: var(--tg-theme-text-color, #ffffff);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            overscroll-behavior: contain;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
         }
         
-        body.miniapp-game #game-container {
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
-            display: flex !important;
-            flex-direction: column !important;
-            z-index: 1000 !important;
+        #game-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
         }
         
-        body.miniapp-game #game-canvas {
-            width: 100% !important;
-            height: 100% !important;
-            display: block !important;
-            border: none !important;
-            outline: none !important;
-            background: transparent !important;
+        #game-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
         }
         
-        body.miniapp-game #score-display {
-            position: absolute !important;
-            top: env(safe-area-inset-top, 10px) !important;
-            left: 10px !important;
-            padding: 5px 10px !important;
-            background-color: rgba(0, 0, 0, 0.7) !important;
-            color: white !important;
-            border-radius: 12px !important;
-            font-size: 18px !important;
-            font-weight: bold !important;
-            z-index: 1100 !important;
-            border: none !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+        #score-display {
+            position: absolute;
+            top: env(safe-area-inset-top, 10px);
+            left: 10px;
+            padding: 5px 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 100;
         }
         
-        body.miniapp-game #game-over {
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
-            background-color: rgba(0, 0, 0, 0.9) !important;
-            display: none !important;
-            flex-direction: column !important;
-            justify-content: center !important;
-            align-items: center !important;
-            z-index: 1200 !important;
-            color: white !important;
+        #speed-display {
+            position: absolute;
+            top: env(safe-area-inset-top, 10px);
+            right: 10px;
+            padding: 5px 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 100;
         }
         
-        body.miniapp-game #game-over h2 {
-            font-size: 32px !important;
-            margin-bottom: 20px !important;
-            color: white !important;
-            font-weight: bold !important;
-            text-align: center !important;
+        #time-display {
+            position: absolute;
+            top: env(safe-area-inset-top, 40px);
+            right: 10px;
+            padding: 5px 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 100;
         }
         
-        body.miniapp-game #game-over p {
-            font-size: 24px !important;
-            margin-bottom: 30px !important;
-            color: white !important;
-            text-align: center !important;
+        #game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            color: white;
         }
         
-        body.miniapp-game .btn,
-        body.miniapp-game #restart-btn {
-            padding: 12px 24px !important;
-            background-color: var(--tg-theme-button-color, #2AABEE) !important;
-            color: var(--tg-theme-button-text-color, #ffffff) !important;
-            border: none !important;
-            border-radius: 12px !important;
-            font-size: 18px !important;
-            font-weight: bold !important;
-            cursor: pointer !important;
-            margin-top: 10px !important;
-            outline: none !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
-            text-decoration: none !important;
-            display: inline-block !important;
-            min-width: 120px !important;
-            text-align: center !important;
+        #game-over h2 {
+            font-size: 32px;
+            margin-bottom: 20px;
         }
         
-        body.miniapp-game .btn:hover,
-        body.miniapp-game #restart-btn:hover {
-            opacity: 0.8 !important;
-            transform: translateY(-1px) !important;
-            transition: all 0.2s ease !important;
+        #game-over p {
+            font-size: 24px;
+            margin-bottom: 30px;
         }
         
-        body.miniapp-game .controls-hint {
-            position: absolute !important;
-            bottom: env(safe-area-inset-bottom, 20px) !important;
-            left: 0 !important;
-            width: 100% !important;
-            text-align: center !important;
-            color: rgba(255, 255, 255, 0.6) !important;
-            font-size: 14px !important;
-            pointer-events: none !important;
-            opacity: 0.8 !important;
-            z-index: 1100 !important;
-            padding: 10px !important;
+        .btn {
+            padding: 12px 24px;
+            background-color: var(--tg-theme-button-color, #2AABEE);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
         }
         
-        /* Дополнительная защита от стилей Telegram */
-        body.miniapp-game * {
-            -webkit-tap-highlight-color: transparent !important;
-            -webkit-focus-ring-color: transparent !important;
+        .controls-hint {
+            position: absolute;
+            bottom: env(safe-area-inset-bottom, 20px);
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+            pointer-events: none;
+            opacity: 0.8;
+            z-index: 100;
         }
     </style>
 </head>
-<body class="miniapp-game">
+<body>
     <div id="game-container">
         <div id="score-display">Счёт: 0</div>
+        <div id="speed-display">Скорость: 1x</div>
+        <div id="time-display">Время: 0:00</div>
         <canvas id="game-canvas"></canvas>
-        <div class="controls-hint">← Проведите для управления змейкой →</div>
+        <div class="controls-hint">← Пока ты играешь мы работаем →</div>
         <div id="game-over">
             <h2>Игра окончена!</h2>
             <p>Ваш счёт: <span id="final-score">0</span></p>
+            <p>Время игры: <span id="final-time">0:00</span></p>
+            <p>Максимальная скорость: <span id="final-speed">1x</span></p>
             <button id="restart-btn" class="btn">Начать заново</button>
         </div>
     </div>
@@ -167,58 +153,33 @@
         tg.expand();
         tg.ready();
         
-        // Принудительно применяем стили для перебивания Telegram стилей
-        function enforceGameStyles() {
-            const body = document.body;
-            const gameContainer = document.getElementById('game-container');
-            
-            // Принудительно устанавливаем стили body
-            body.style.setProperty('margin', '0', 'important');
-            body.style.setProperty('padding', '0', 'important');
-            body.style.setProperty('overflow', 'hidden', 'important');
-            body.style.setProperty('position', 'fixed', 'important');
-            body.style.setProperty('width', '100%', 'important');
-            body.style.setProperty('height', '100%', 'important');
-            body.style.setProperty('top', '0', 'important');
-            body.style.setProperty('left', '0', 'important');
-            body.style.setProperty('right', '0', 'important');
-            body.style.setProperty('bottom', '0', 'important');
-            
-            // Принудительно устанавливаем стили игрового контейнера
-            if (gameContainer) {
-                gameContainer.style.setProperty('position', 'absolute', 'important');
-                gameContainer.style.setProperty('top', '0', 'important');
-                gameContainer.style.setProperty('left', '0', 'important');
-                gameContainer.style.setProperty('width', '100%', 'important');
-                gameContainer.style.setProperty('height', '100%', 'important');
-                gameContainer.style.setProperty('z-index', '1000', 'important');
-            }
-        }
-        
-        // Применяем стили при загрузке и через интервал для надежности
-        enforceGameStyles();
-        setInterval(enforceGameStyles, 100);
-        
         // Получаем цвета из темы Telegram
         const backgroundColor = tg.themeParams.bg_color || '#000000';
         const textColor = tg.themeParams.text_color || '#ffffff';
         const buttonColor = tg.themeParams.button_color || '#2AABEE';
         const buttonTextColor = tg.themeParams.button_text_color || '#ffffff';
         
-        // Применяем цвета принудительно
-        document.body.style.setProperty('background-color', backgroundColor, 'important');
-        document.body.style.setProperty('color', textColor, 'important');
+        // Применяем цвета
+        document.body.style.backgroundColor = backgroundColor;
+        document.body.style.color = textColor;
         
         // Настройки игры
         const canvas = document.getElementById('game-canvas');
         const ctx = canvas.getContext('2d');
         const scoreDisplay = document.getElementById('score-display');
+        const speedDisplay = document.getElementById('speed-display');
+        const timeDisplay = document.getElementById('time-display');
         const gameOverScreen = document.getElementById('game-over');
         const finalScoreDisplay = document.getElementById('final-score');
+        const finalTimeDisplay = document.getElementById('final-time');
+        const finalSpeedDisplay = document.getElementById('final-speed');
         const restartBtn = document.getElementById('restart-btn');
         
         let score = 0;
         let gameOver = false;
+        let gameStartTime = 0;
+        let currentSpeedLevel = 1;
+        let lastSpeedIncreaseTime = 0;
         
         // Размер клетки игрового поля
         let cellSize = 0;
@@ -238,8 +199,14 @@
         let food = null;
         let direction = directions.RIGHT;
         let nextDirection = direction;
-        let gameSpeed = 150; // начальная скорость змейки в мс
+        let baseGameSpeed = 200; // базовая скорость в мс
+        let gameSpeed = baseGameSpeed;
         let lastUpdateTime = 0;
+        let lastFrameTime = 0;
+        
+        // Плавная интерполяция для анимации змейки
+        let snakePositions = [];
+        let animationProgress = 0;
         
         // Инициализация игры
         function initGame() {
@@ -254,23 +221,39 @@
                 { x: centerX - 2, y: centerY }
             ];
             
+            // Инициализируем позиции для плавной анимации
+            snakePositions = snake.map(segment => ({ 
+                x: segment.x, 
+                y: segment.y,
+                prevX: segment.x,
+                prevY: segment.y
+            }));
+            
             // Ставим еду
             placeFood();
             
-            // Сбрасываем направление и счет
+            // Сбрасываем все переменные
             direction = directions.RIGHT;
             nextDirection = direction;
             score = 0;
             gameOver = false;
-            gameSpeed = 150;
+            gameStartTime = Date.now();
+            currentSpeedLevel = 1;
+            lastSpeedIncreaseTime = gameStartTime;
+            baseGameSpeed = 200;
+            gameSpeed = baseGameSpeed;
+            animationProgress = 0;
             
-            // Обновляем счёт
+            // Обновляем отображение
             updateScore();
+            updateSpeedDisplay();
+            updateTimeDisplay();
             
             // Скрываем экран окончания игры
             gameOverScreen.style.display = 'none';
             
             // Запускаем игровой цикл
+            lastFrameTime = performance.now();
             requestAnimationFrame(gameLoop);
         }
         
@@ -317,9 +300,35 @@
         function update(timestamp) {
             if (gameOver) return;
             
+            // Проверяем время для увеличения скорости каждые 30 секунд
+            const currentTime = Date.now();
+            if (currentTime - lastSpeedIncreaseTime >= 30000) { // 30 секунд
+                increaseSpeed();
+                lastSpeedIncreaseTime = currentTime;
+            }
+            
+            // Обновляем отображение времени
+            updateTimeDisplay();
+            
             // Определяем, нужно ли обновлять состояние игры
-            if (timestamp - lastUpdateTime < gameSpeed) return;
+            if (timestamp - lastUpdateTime < gameSpeed) {
+                // Обновляем прогресс анимации для плавного движения
+                animationProgress = Math.min(1, (timestamp - lastUpdateTime) / gameSpeed);
+                return false; // Не обновляем логику, только анимацию
+            }
+            
             lastUpdateTime = timestamp;
+            animationProgress = 0;
+            
+            // Сохраняем предыдущие позиции для плавной анимации
+            snakePositions.forEach((pos, index) => {
+                if (index < snake.length) {
+                    pos.prevX = pos.x;
+                    pos.prevY = pos.y;
+                    pos.x = snake[index].x;
+                    pos.y = snake[index].y;
+                }
+            });
             
             // Устанавливаем новое направление
             direction = nextDirection;
@@ -334,13 +343,13 @@
             // Проверяем столкновения со стенами
             if (isWall(head.x, head.y)) {
                 endGame();
-                return;
+                return true;
             }
             
             // Проверяем столкновения с самой собой
             if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
                 endGame();
-                return;
+                return true;
             }
             
             // Добавляем новую голову
@@ -348,17 +357,36 @@
             
             // Проверяем, съела ли змейка еду
             if (head.x === food.x && head.y === food.y) {
-                score += 10;
+                score += 10 * currentSpeedLevel; // Больше очков на высокой скорости
                 updateScore();
                 placeFood();
                 
-                // Увеличиваем скорость
-                if (gameSpeed > 50) {
-                    gameSpeed -= 2;
-                }
+                // Добавляем новую позицию для анимации
+                snakePositions.unshift({
+                    x: head.x,
+                    y: head.y,
+                    prevX: head.x,
+                    prevY: head.y
+                });
             } else {
                 // Если не съела, убираем последний сегмент
                 snake.pop();
+                snakePositions.pop();
+            }
+            
+            return true;
+        }
+        
+        // Увеличение скорости игры
+        function increaseSpeed() {
+            currentSpeedLevel++;
+            // Уменьшаем время между обновлениями, но не менее 50ms
+            gameSpeed = Math.max(50, baseGameSpeed - (currentSpeedLevel - 1) * 20);
+            updateSpeedDisplay();
+            
+            // Визуальная обратная связь
+            if ('vibrate' in navigator) {
+                navigator.vibrate([50, 50, 50]);
             }
         }
         
@@ -387,32 +415,73 @@
                 }
             }
             
-            // Рисуем еду
+            // Рисуем еду с пульсацией
+            const pulseScale = 0.9 + 0.1 * Math.sin(Date.now() * 0.005);
+            const foodSize = cellSize * pulseScale;
+            const foodOffset = (cellSize - foodSize) / 2;
             ctx.fillStyle = '#FF4136'; // красный цвет
             drawRoundedRect(
-                offsetX + food.x * cellSize, 
-                offsetY + food.y * cellSize, 
-                cellSize, 
-                cellSize, 
-                cellSize / 3
+                offsetX + food.x * cellSize + foodOffset, 
+                offsetY + food.y * cellSize + foodOffset, 
+                foodSize, 
+                foodSize, 
+                foodSize / 3
             );
             
-            // Рисуем змейку
-            snake.forEach((segment, index) => {
-                // Для головы используем другой цвет
+            // Рисуем змейку с плавной анимацией
+            snakePositions.forEach((pos, index) => {
+                if (index >= snake.length) return;
+                
+                // Вычисляем интерполированную позицию
+                const interpX = pos.prevX + (pos.x - pos.prevX) * animationProgress;
+                const interpY = pos.prevY + (pos.y - pos.prevY) * animationProgress;
+                
+                // Для головы используем другой цвет и добавляем глаза
                 if (index === 0) {
                     ctx.fillStyle = '#2ECC40'; // зеленый для головы
+                    drawRoundedRect(
+                        offsetX + interpX * cellSize, 
+                        offsetY + interpY * cellSize, 
+                        cellSize, 
+                        cellSize, 
+                        cellSize / 3
+                    );
+                    
+                    // Рисуем глаза
+                    ctx.fillStyle = '#FFFFFF';
+                    const eyeSize = cellSize * 0.15;
+                    const eyeOffsetX = cellSize * 0.25;
+                    const eyeOffsetY = cellSize * 0.25;
+                    
+                    // Левый глаз
+                    ctx.beginPath();
+                    ctx.arc(
+                        offsetX + interpX * cellSize + eyeOffsetX,
+                        offsetY + interpY * cellSize + eyeOffsetY,
+                        eyeSize, 0, 2 * Math.PI
+                    );
+                    ctx.fill();
+                    
+                    // Правый глаз
+                    ctx.beginPath();
+                    ctx.arc(
+                        offsetX + interpX * cellSize + cellSize - eyeOffsetX,
+                        offsetY + interpY * cellSize + eyeOffsetY,
+                        eyeSize, 0, 2 * Math.PI
+                    );
+                    ctx.fill();
                 } else {
-                    ctx.fillStyle = '#01FF70'; // светло-зеленый для тела
+                    // Тело змейки с градиентом
+                    const alpha = 1 - (index * 0.05); // Постепенное затухание
+                    ctx.fillStyle = `rgba(1, 255, 112, ${Math.max(0.3, alpha)})`;
+                    drawRoundedRect(
+                        offsetX + interpX * cellSize, 
+                        offsetY + interpY * cellSize, 
+                        cellSize, 
+                        cellSize, 
+                        cellSize / 3
+                    );
                 }
-                
-                drawRoundedRect(
-                    offsetX + segment.x * cellSize, 
-                    offsetY + segment.y * cellSize, 
-                    cellSize, 
-                    cellSize, 
-                    cellSize / 3
-                );
             });
         }
         
@@ -437,10 +506,33 @@
             scoreDisplay.textContent = `Счёт: ${score}`;
         }
         
+        // Обновляем отображение скорости
+        function updateSpeedDisplay() {
+            speedDisplay.textContent = `Скорость: ${currentSpeedLevel}x`;
+        }
+        
+        // Обновляем отображение времени
+        function updateTimeDisplay() {
+            const elapsed = Math.floor((Date.now() - gameStartTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            timeDisplay.textContent = `Время: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        // Форматирование времени для финального экрана
+        function formatTime(startTime) {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
         // Обработка окончания игры
         function endGame() {
             gameOver = true;
             finalScoreDisplay.textContent = score;
+            finalTimeDisplay.textContent = formatTime(gameStartTime);
+            finalSpeedDisplay.textContent = `${currentSpeedLevel}x`;
             gameOverScreen.style.display = 'flex';
             
             // Вибрируем телефон, если доступно
@@ -449,10 +541,21 @@
             }
         }
         
-        // Основной игровой цикл
+        // Основной игровой цикл с точным контролем FPS
         function gameLoop(timestamp) {
-            update(timestamp);
+            if (gameOver) return;
+            
+            // Ограничиваем FPS до 60
+            const deltaTime = timestamp - lastFrameTime;
+            if (deltaTime < 16.67) { // ~60 FPS
+                requestAnimationFrame(gameLoop);
+                return;
+            }
+            lastFrameTime = timestamp;
+            
+            const logicUpdated = update(timestamp);
             draw();
+            
             requestAnimationFrame(gameLoop);
         }
         
@@ -529,10 +632,15 @@
             resizeCanvas();
         });
         
-        // Запускаем игру при загрузке страницы
+        // Запуск игры при загрузке страницы
         window.addEventListener('load', () => {
             initGame();
         });
+        
+        // Запуск игры, если страница уже загружена
+        if (document.readyState === 'complete') {
+            initGame();
+        }
     </script>
 </body>
 </html>
