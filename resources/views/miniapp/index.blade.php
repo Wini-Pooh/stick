@@ -152,6 +152,7 @@
         // Аватарка пользователя
         let userAvatar = null;
         let userAvatarLoaded = false;
+        let userProfileData = null;
         
         // Направления змейки
         const directions = {
@@ -161,147 +162,152 @@
             RIGHT: { x: 1, y: 0 }
         };
         
-        // Состояние игры для плавного движения
+        // Состояние игры
         let snake = [];
-        let renderSnake = []; // Для плавной анимации
-        let food = [];
+        let food = null;
         let direction = directions.RIGHT;
         let nextDirection = direction;
-        let gameSpeed = 180; // увеличена начальная скорость для плавности
+        let gameSpeed = 150; // начальная скорость змейки в мс
         let lastUpdateTime = 0;
-        let animationProgress = 0; // Прогресс анимации между кадрами
         
-        // Загрузка аватарки пользователя через Telegram Bot API
+        // Загрузка реальной аватарки пользователя
         async function loadUserAvatar() {
             console.log('Loading user avatar...');
-            console.log('Telegram WebApp data:', tg.initDataUnsafe);
             
-            let userPhotoLoaded = false;
+            // Сначала пытаемся получить данные пользователя через API
+            await loadUserProfileData();
             
-            // Пробуем загрузить фото через Bot API
-            if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+            // Пытаемся загрузить фото из разных источников
+            let photoUrl = null;
+            
+            // 1. Из данных профиля с сервера
+            if (userProfileData && userProfileData.user && userProfileData.user.photo_url) {
+                photoUrl = userProfileData.user.photo_url;
+                console.log('Found photo URL from server:', photoUrl);
+            }
+            
+            // 2. Из initDataUnsafe Telegram WebApp
+            if (!photoUrl && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.photo_url) {
+                photoUrl = tg.initDataUnsafe.user.photo_url;
+                console.log('Found photo URL from initDataUnsafe:', photoUrl);
+            }
+            
+            // 3. Пытаемся получить через Telegram Bot API (если есть username)
+            if (!photoUrl && userProfileData && userProfileData.user && userProfileData.user.username) {
                 try {
-                    const userId = tg.initDataUnsafe.user.id;
-                    console.log('Trying to load avatar for user ID:', userId);
-                    
-                    // Отправляем запрос на сервер для получения фото профиля
-                    const response = await fetch('/miniapp/get-user-photo', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                        },
-                        body: JSON.stringify({
-                            user_id: userId,
-                            initData: tg.initData
-                        })
-                    });
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.success && data.photo_url) {
-                            console.log('Got photo URL from server:', data.photo_url);
-                            
-                            const img = new Image();
-                            img.crossOrigin = 'anonymous';
-                            img.onload = function() {
-                                userAvatar = img;
-                                userAvatarLoaded = true;
-                                userPhotoLoaded = true;
-                                console.log('User avatar loaded successfully from Bot API');
-                            };
-                            img.onerror = function() {
-                                console.log('Failed to load user avatar from Bot API, trying fallback');
-                                tryDirectPhotoUrl();
-                            };
-                            img.src = data.photo_url;
-                        } else {
-                            console.log('No photo URL from server, trying direct method');
-                            tryDirectPhotoUrl();
-                        }
-                    } else {
-                        console.log('Server request failed, trying direct method');
-                        tryDirectPhotoUrl();
-                    }
-                } catch (error) {
-                    console.log('Error loading avatar from server:', error);
-                    tryDirectPhotoUrl();
+                    photoUrl = await getUserPhotoFromAPI(userProfileData.user.id);
+                    console.log('Found photo URL from Bot API:', photoUrl);
+                } catch (e) {
+                    console.log('Failed to get photo from Bot API:', e.message);
                 }
+            }
+            
+            if (photoUrl) {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = function() {
+                    userAvatar = img;
+                    userAvatarLoaded = true;
+                    console.log('User avatar loaded successfully');
+                };
+                img.onerror = function() {
+                    console.log('Failed to load user avatar, using fallback');
+                    createFallbackAvatar();
+                };
+                img.src = photoUrl;
             } else {
-                console.log('No user ID found, creating fallback avatar');
+                console.log('No photo URL found, using fallback');
                 createFallbackAvatar();
             }
-            
-            // Fallback - пытаемся использовать прямой URL если есть
-            function tryDirectPhotoUrl() {
-                if (userPhotoLoaded) return; // Уже загружено
+        }
+        
+        // Загрузка данных профиля пользователя
+        async function loadUserProfileData() {
+            try {
+                const initData = getInitData();
+                if (!initData) {
+                    console.log('No initData available');
+                    return;
+                }
                 
-                if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.photo_url) {
-                    const img = new Image();
-                    img.crossOrigin = 'anonymous';
-                    img.onload = function() {
-                        userAvatar = img;
-                        userAvatarLoaded = true;
-                        console.log('User avatar loaded from direct URL');
-                    };
-                    img.onerror = function() {
-                        console.log('Failed to load from direct URL, creating fallback');
-                        createFallbackAvatar();
-                    };
-                    img.src = tg.initDataUnsafe.user.photo_url;
+                const response = await fetch('/miniapp/profile-debug', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({ initData: initData })
+                });
+                
+                if (response.ok) {
+                    userProfileData = await response.json();
+                    console.log('User profile data loaded:', userProfileData);
                 } else {
-                    createFallbackAvatar();
+                    console.log('Failed to load user profile data:', response.status);
                 }
+            } catch (error) {
+                console.log('Error loading user profile data:', error);
             }
+        }
+        
+        // Получение initData из различных источников
+        function getInitData() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
             
-            // Таймаут на случай если запрос слишком долгий
-            setTimeout(() => {
-                if (!userAvatarLoaded) {
-                    console.log('Avatar loading timeout, creating fallback');
-                    createFallbackAvatar();
+            return hashParams.get('tgWebAppData') ? decodeURIComponent(hashParams.get('tgWebAppData')) :
+                   urlParams.get('initData') || 
+                   tg.initData || 
+                   '';
+        }
+        
+        // Получение фото пользователя через Bot API (экспериментальная функция)
+        async function getUserPhotoFromAPI(userId) {
+            try {
+                const response = await fetch(`/miniapp/user-photo/${userId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.photo_url;
                 }
-            }, 3000);
+            } catch (e) {
+                console.log('Bot API photo fetch failed:', e);
+            }
+            return null;
         }
         
         // Создание fallback аватарки
         function createFallbackAvatar() {
-            if (userAvatarLoaded) return; // Уже загружено
-            
             const avatarCanvas = document.createElement('canvas');
-            avatarCanvas.width = 128;
-            avatarCanvas.height = 128;
+            avatarCanvas.width = 64;
+            avatarCanvas.height = 64;
             const avatarCtx = avatarCanvas.getContext('2d');
             
-            // Создаем градиентный фон
-            const gradient = avatarCtx.createLinearGradient(0, 0, 128, 128);
+            // Рисуем градиентный фон
+            const gradient = avatarCtx.createLinearGradient(0, 0, 64, 64);
             gradient.addColorStop(0, '#2AABEE');
-            gradient.addColorStop(1, '#1e90ff');
-            
+            gradient.addColorStop(1, '#229ED9');
             avatarCtx.fillStyle = gradient;
-            avatarCtx.fillRect(0, 0, 128, 128);
+            avatarCtx.fillRect(0, 0, 64, 64);
             
             // Получаем первую букву имени пользователя
             let initial = '?';
-            if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+            if (userProfileData && userProfileData.user) {
+                const user = userProfileData.user;
+                initial = (user.first_name || user.username || '?')[0].toUpperCase();
+            } else if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
                 const user = tg.initDataUnsafe.user;
                 initial = (user.first_name || user.username || '?')[0].toUpperCase();
             }
             
-            // Рисуем букву с тенью
-            avatarCtx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-            avatarCtx.shadowBlur = 4;
-            avatarCtx.shadowOffsetX = 2;
-            avatarCtx.shadowOffsetY = 2;
-            
+            // Рисуем инициал
             avatarCtx.fillStyle = '#ffffff';
-            avatarCtx.font = 'bold 64px Arial';
+            avatarCtx.font = 'bold 32px Arial';
             avatarCtx.textAlign = 'center';
             avatarCtx.textBaseline = 'middle';
-            avatarCtx.fillText(initial, 64, 64);
+            avatarCtx.fillText(initial, 32, 32);
             
             userAvatar = avatarCanvas;
             userAvatarLoaded = true;
-            console.log('Fallback avatar created with initial:', initial);
         }
         
         // Инициализация игры
@@ -318,24 +324,15 @@
                 { x: centerX - 2, y: centerY }
             ];
             
-            // Инициализируем renderSnake для плавной анимации
-            renderSnake = snake.map(segment => ({
-                x: segment.x,
-                y: segment.y,
-                renderX: segment.x,
-                renderY: segment.y
-            }));
-            
-            // Размещаем еду (от 1 до 3 штук)
-            placeFoodItems();
+            // Ставим еду
+            placeFood();
             
             // Сбрасываем направление и счет
             direction = directions.RIGHT;
             nextDirection = direction;
             score = 0;
             gameOver = false;
-            gameSpeed = 180;
-            animationProgress = 0;
+            gameSpeed = 150;
             
             // Обновляем счёт
             updateScore();
@@ -349,49 +346,29 @@
         
         // Изменение размера холста при изменении размера окна
         function resizeCanvas() {
-            // Получаем размеры окна
             const width = window.innerWidth;
             const height = window.innerHeight;
             
-            // Устанавливаем размеры холста
             canvas.width = width;
             canvas.height = height;
             
-            // Вычисляем размер клетки исходя из размера экрана
             cellSize = Math.min(
                 Math.floor(width / gridSize.width),
                 Math.floor(height / gridSize.height)
             );
         }
         
-        // Размещаем еду в случайных местах (от 1 до 3 штук)
-        function placeFoodItems() {
-            food = [];
-            const foodCount = Math.floor(Math.random() * 3) + 1; // от 1 до 3 штук
+        // Размещаем еду в случайном месте
+        function placeFood() {
+            const x = Math.floor(Math.random() * gridSize.width);
+            const y = Math.floor(Math.random() * gridSize.height);
             
-            for (let i = 0; i < foodCount; i++) {
-                placeSingleFood();
-            }
-        }
-        
-        // Размещаем один элемент еды
-        function placeSingleFood() {
-            let attempts = 0;
-            const maxAttempts = 100;
+            const isOnSnake = snake.some(segment => segment.x === x && segment.y === y);
             
-            while (attempts < maxAttempts) {
-                const x = Math.floor(Math.random() * gridSize.width);
-                const y = Math.floor(Math.random() * gridSize.height);
-                
-                // Проверяем, не совпадает ли с телом змеи или существующей едой
-                const isOnSnake = snake.some(segment => segment.x === x && segment.y === y);
-                const isOnFood = food.some(f => f.x === x && f.y === y);
-                
-                if (!isOnSnake && !isOnFood) {
-                    food.push({ x, y });
-                    break;
-                }
-                attempts++;
+            if (isOnSnake) {
+                placeFood();
+            } else {
+                food = { x, y };
             }
         }
         
@@ -399,27 +376,17 @@
         function update(timestamp) {
             if (gameOver) return;
             
-            // Определяем, нужно ли обновлять состояние игры
-            if (timestamp - lastUpdateTime < gameSpeed) {
-                // Обновляем прогресс анимации для плавного движения
-                animationProgress = Math.min(1, (timestamp - lastUpdateTime) / gameSpeed);
-                return;
-            }
-            
+            if (timestamp - lastUpdateTime < gameSpeed) return;
             lastUpdateTime = timestamp;
-            animationProgress = 0;
             
-            // Устанавливаем новое направление
             direction = nextDirection;
             
-            // Получаем текущую голову змеи
             const head = { ...snake[0] };
             
-            // Вычисляем новое положение головы
             head.x += direction.x;
             head.y += direction.y;
             
-            // Проверяем столкновения с границами экрана (телепортация)
+            // Телепортация через границы
             if (head.x < 0) head.x = gridSize.width - 1;
             if (head.x >= gridSize.width) head.x = 0;
             if (head.y < 0) head.y = gridSize.height - 1;
@@ -431,153 +398,107 @@
                 return;
             }
             
-            // Добавляем новую голову
             snake.unshift(head);
             
-            // Проверяем, съела ли змейка еду
-            const eatenFoodIndex = food.findIndex(f => f.x === head.x && f.y === head.y);
-            if (eatenFoodIndex !== -1) {
-                // Удаляем съеденную еду
-                food.splice(eatenFoodIndex, 1);
-                
+            // Проверяем съедание еды
+            if (head.x === food.x && head.y === food.y) {
                 score += 10;
                 updateScore();
+                placeFood();
                 
-                // Добавляем новую еду, если еды меньше 3 штук
-                if (food.length < 3) {
-                    placeSingleFood();
-                }
-                
-                // Увеличиваем скорость
-                if (gameSpeed > 80) {
-                    gameSpeed -= 3;
+                if (gameSpeed > 50) {
+                    gameSpeed -= 2;
                 }
             } else {
-                // Если не съела, убираем последний сегмент
                 snake.pop();
-            }
-            
-            // Обновляем renderSnake для плавной анимации
-            renderSnake = snake.map((segment, index) => {
-                const prevSegment = renderSnake[index];
-                return {
-                    x: segment.x,
-                    y: segment.y,
-                    renderX: prevSegment ? prevSegment.renderX : segment.x,
-                    renderY: prevSegment ? prevSegment.renderY : segment.y
-                };
-            });
-            
-            // Проверяем, есть ли еда на поле, если нет - добавляем
-            if (food.length === 0) {
-                placeFoodItems();
             }
         }
         
-        // Отрисовка игры
+        // Отрисовка игры с эффектом хлыста
         function draw() {
-            // Очищаем холст
             ctx.fillStyle = backgroundColor;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Вычисляем смещение для центрирования игрового поля
             const offsetX = (canvas.width - cellSize * gridSize.width) / 2;
             const offsetY = (canvas.height - cellSize * gridSize.height) / 2;
             
-            // Рисуем еду
-            ctx.fillStyle = '#FF4136'; // красный цвет
-            food.forEach(f => {
-                drawRoundedRect(
-                    offsetX + f.x * cellSize, 
-                    offsetY + f.y * cellSize, 
-                    cellSize, 
-                    cellSize, 
-                    cellSize / 2
-                );
-            });
+            // Рисуем еду с пульсацией
+            const pulse = Math.sin(Date.now() / 200) * 0.1 + 0.9;
+            ctx.fillStyle = '#FF4136';
+            drawRoundedRect(
+                offsetX + food.x * cellSize + cellSize * (1 - pulse) / 2, 
+                offsetY + food.y * cellSize + cellSize * (1 - pulse) / 2, 
+                cellSize * pulse, 
+                cellSize * pulse, 
+                cellSize / 3 * pulse
+            );
             
-            // Рисуем змейку с плавным движением и эффектом хвоста
-            renderSnake.forEach((segment, index) => {
-                // Интерполяция позиции для плавного движения
-                const renderX = segment.renderX + (segment.x - segment.renderX) * animationProgress;
-                const renderY = segment.renderY + (segment.y - segment.renderY) * animationProgress;
+            // Рисуем змейку с эффектом хлыста
+            snake.forEach((segment, index) => {
+                const x = offsetX + segment.x * cellSize;
+                const y = offsetY + segment.y * cellSize;
                 
-                const x = offsetX + renderX * cellSize;
-                const y = offsetY + renderY * cellSize;
+                // Вычисляем размер сегмента (эффект хлыста)
+                const maxSegments = Math.min(snake.length, 15); // максимум 15 сегментов для расчета
+                const segmentProgress = Math.min(index / maxSegments, 1);
+                const sizeMultiplier = 1 - (segmentProgress * 0.4); // уменьшение до 60% от оригинального размера
+                const actualSize = cellSize * sizeMultiplier;
+                const offset = (cellSize - actualSize) / 2;
                 
                 if (index === 0) {
-                    // Голова змейки - на 30% больше туловища
-                    const headSize = cellSize * 1.1;
-                    const headOffset = (cellSize - headSize) / 2;
-                    const headX = x + headOffset;
-                    const headY = y + headOffset;
-                    
-                    // Для головы используем аватарку пользователя
+                    // Голова змейки с реальной аватаркой
                     if (userAvatarLoaded && userAvatar) {
                         ctx.save();
                         
                         // Создаем круглую маску
                         ctx.beginPath();
-                        ctx.arc(x + cellSize/2, y + cellSize/2, headSize/2 - 2, 0, 2 * Math.PI);
+                        ctx.arc(x + cellSize/2, y + cellSize/2, actualSize/2 - 2, 0, 2 * Math.PI);
                         ctx.clip();
                         
                         // Рисуем аватарку
-                        ctx.drawImage(userAvatar, 
-                            headX + 2, 
-                            headY + 2, 
-                            headSize - 4, 
-                            headSize - 4
+                        ctx.drawImage(
+                            userAvatar, 
+                            x + offset + 2, 
+                            y + offset + 2, 
+                            actualSize - 4, 
+                            actualSize - 4
                         );
                         
                         ctx.restore();
                         
                         // Добавляем контур для головы
                         ctx.strokeStyle = '#2ECC40';
-                        ctx.lineWidth = 1;
+                        ctx.lineWidth = 3;
                         ctx.beginPath();
-                        ctx.arc(x + cellSize/2, y + cellSize/2, headSize/2 - 1, 0, 2 * Math.PI);
+                        ctx.arc(x + cellSize/2, y + cellSize/2, actualSize/2 - 1, 0, 2 * Math.PI);
                         ctx.stroke();
                     } else {
                         // Fallback для головы
-                        ctx.fillStyle = '#2ECC40'; // зеленый для головы
-                        drawRoundedRect(
-                            headX, 
-                            headY, 
-                            headSize, 
-                            headSize, 
-                            headSize / 1
-                        );
+                        ctx.fillStyle = '#2ECC40';
+                        drawRoundedRect(x + offset, y + offset, actualSize, actualSize, actualSize / 3);
                     }
                 } else {
-                    // Эффект хвоста - сегменты становятся меньше к концу
-                    const totalSegments = renderSnake.length;
-                    const tailProgress = (totalSegments - index - 1) / Math.max(1, totalSegments - 1);
+                    // Тело змейки с градиентом и эффектом хлыста
+                    const alpha = 1 - (segmentProgress * 0.3); // постепенно делаем прозрачнее
                     
-                    // Размер сегмента уменьшается от 80% до 40% к концу хвоста
-                    const minSize = 0.4;
-                    const maxSize = 0.8;
-                    const sizeMultiplier = minSize + (maxSize - minSize) * tailProgress;
-                    const segmentSize = cellSize * sizeMultiplier;
-                    const segmentOffset = (cellSize - segmentSize) / 2;
+                    // Основной цвет тела
+                    ctx.fillStyle = `rgba(1, 255, 112, ${alpha})`;
+                    drawRoundedRect(x + offset, y + offset, actualSize, actualSize, actualSize / 3);
                     
-                    // Прозрачность также уменьшается к концу хвоста
-                    const opacity = Math.max(0.3, 0.9 * tailProgress);
-                    
-                    ctx.fillStyle = `rgba(1, 255, 112, ${opacity})`; // светло-зеленый с прозрачностью
-                    drawRoundedRect(
-                        x + segmentOffset, 
-                        y + segmentOffset, 
-                        segmentSize, 
-                        segmentSize, 
-                        segmentSize / 1
-                    );
+                    // Добавляем внутреннее свечение для красоты
+                    if (index < 5) {
+                        ctx.fillStyle = `rgba(46, 204, 64, ${alpha * 0.3})`;
+                        const innerSize = actualSize * 0.6;
+                        const innerOffset = (actualSize - innerSize) / 2;
+                        drawRoundedRect(
+                            x + offset + innerOffset, 
+                            y + offset + innerOffset, 
+                            innerSize, 
+                            innerSize, 
+                            innerSize / 3
+                        );
+                    }
                 }
-            });
-            
-            // Обновляем renderSnake позиции для следующего кадра
-            renderSnake.forEach(segment => {
-                segment.renderX = segment.renderX + (segment.x - segment.renderX) * animationProgress;
-                segment.renderY = segment.renderY + (segment.y - segment.renderY) * animationProgress;
             });
         }
         
@@ -615,7 +536,6 @@
             finalScoreDisplay.textContent = score;
             gameOverScreen.style.display = 'flex';
             
-            // Вибрируем телефон, если доступно
             if ('vibrate' in navigator) {
                 navigator.vibrate(200);
             }

@@ -51,7 +51,6 @@ Route::prefix('miniapp')->group(function () {
     Route::post('/debug-debug', [App\Http\Controllers\MiniAppController::class, 'debugInfoDebug'])->name('miniapp.debug-debug');
     Route::post('/save-score', [App\Http\Controllers\MiniAppController::class, 'saveGameScore'])->name('miniapp.save-score');
     Route::post('/game-stats', [App\Http\Controllers\MiniAppController::class, 'getGameStats'])->name('miniapp.game-stats');
-    Route::post('/get-user-photo', [App\Http\Controllers\MiniAppController::class, 'getUserPhoto'])->name('miniapp.get-user-photo');
     
     // Статистика (открытый endpoint для демонстрации)
     Route::get('/stats', [App\Http\Controllers\MiniAppController::class, 'userStats'])->name('miniapp.stats');
@@ -61,6 +60,9 @@ Route::prefix('miniapp')->group(function () {
         Route::post('/profile', [App\Http\Controllers\MiniAppController::class, 'profile'])->name('miniapp.profile');
         Route::post('/debug', [App\Http\Controllers\MiniAppController::class, 'debugInfo'])->name('miniapp.debug');
     });
+    
+    // Получение фотографии пользователя
+    Route::get('/user-photo/{userId}', [App\Http\Controllers\MiniAppController::class, 'getUserPhoto'])->name('miniapp.user-photo');
 });
 
 // Telegram Bot routes
