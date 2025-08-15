@@ -5,27 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Telegram Mini App</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--tg-theme-bg-color, #ffffff);
             color: var(--tg-theme-text-color, #000000);
-            padding: 16px;
             min-height: 100vh;
         }
         
-        .container {
+        .miniapp-container {
             max-width: 600px;
             margin: 0 auto;
+            padding: 16px;
         }
         
-        .header {
+        .miniapp-header {
             text-align: center;
             margin-bottom: 24px;
             padding: 20px;
@@ -33,18 +32,28 @@
             border-radius: 12px;
         }
         
-        .profile-section, .debug-section {
+        .miniapp-section {
             background: var(--tg-theme-secondary-bg-color, #f8f8f8);
             border-radius: 12px;
             padding: 16px;
             margin-bottom: 16px;
         }
         
-        .section-title {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 12px;
-            color: var(--tg-theme-text-color, #000);
+        .miniapp-button {
+            background: var(--tg-theme-button-color, #007bff);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin: 8px 0;
+            transition: opacity 0.2s;
+        }
+        
+        .miniapp-button:hover {
+            opacity: 0.8;
         }
         
         .user-info {
@@ -58,26 +67,12 @@
             width: 48px;
             height: 48px;
             border-radius: 50%;
-            background: var(--tg-theme-button-color, #3390ec);
+            background: var(--tg-theme-button-color, #007bff);
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
             font-weight: bold;
-        }
-        
-        .user-details {
-            flex: 1;
-        }
-        
-        .username {
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-        
-        .user-id {
-            font-size: 14px;
-            color: var(--tg-theme-hint-color, #999);
         }
         
         .debug-info {
@@ -91,36 +86,6 @@
             overflow-y: auto;
         }
         
-        .loading {
-            text-align: center;
-            color: var(--tg-theme-hint-color, #999);
-            padding: 20px;
-        }
-        
-        .error {
-            background: #ffebee;
-            color: #c62828;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 16px;
-        }
-        
-        .button {
-            background: var(--tg-theme-button-color, #3390ec);
-            color: var(--tg-theme-button-text-color, #ffffff);
-            border: none;
-            border-radius: 8px;
-            padding: 12px 20px;
-            font-size: 16px;
-            cursor: pointer;
-            width: 100%;
-            margin: 8px 0;
-        }
-        
-        .button:hover {
-            opacity: 0.8;
-        }
-        
         .status-indicator {
             display: inline-block;
             width: 8px;
@@ -130,42 +95,47 @@
         }
         
         .status-online {
-            background: #4caf50;
+            background: #28a745;
         }
         
         .status-offline {
-            background: #f44336;
+            background: #dc3545;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🚀 Telegram Mini App</h1>
-            <p>Профиль пользователя и отладочная информация</p>
+    <div class="miniapp-container">
+        <div class="miniapp-header">
+            <h1 class="h3 mb-2">🚀 Telegram Mini App</h1>
+            <p class="text-muted mb-0">Профиль пользователя и отладочная информация</p>
         </div>
 
-        <div class="profile-section">
-            <h2 class="section-title">👤 Профиль пользователя</h2>
-            <div id="profile-content" class="loading">
+        <div class="miniapp-section">
+            <h2 class="h5 mb-3">👤 Профиль пользователя</h2>
+            <div id="profile-content" class="text-center text-muted">
+                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
                 Загрузка профиля...
             </div>
-            <button class="button" onclick="loadProfile()">🔄 Обновить профиль</button>
+            <button class="miniapp-button mt-3" onclick="loadProfile()">🔄 Обновить профиль</button>
         </div>
 
-        <div class="debug-section">
-            <h2 class="section-title">🐛 Отладочная информация</h2>
-            <div id="debug-content" class="loading">
+        <div class="miniapp-section">
+            <h2 class="h5 mb-3">🐛 Отладочная информация</h2>
+            <div id="debug-content" class="text-center text-muted">
+                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
                 Загрузка отладочной информации...
             </div>
-            <button class="button" onclick="loadDebugInfo()">🔄 Обновить debug</button>
+            <button class="miniapp-button mt-3" onclick="loadDebugInfo()">🔄 Обновить debug</button>
         </div>
 
-        <div class="debug-section">
-            <h2 class="section-title">⚙️ Telegram WebApp API</h2>
+        <div class="miniapp-section">
+            <h2 class="h5 mb-3">⚙️ Telegram WebApp API</h2>
             <div id="webapp-info" class="debug-info"></div>
         </div>
     </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
         // Инициализация Telegram WebApp
@@ -211,7 +181,7 @@
         async function loadProfile() {
             try {
                 const profileContent = document.getElementById('profile-content');
-                profileContent.innerHTML = '<div class="loading">Загрузка...</div>';
+                profileContent.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm me-2" role="status"></div>Загрузка...</div>';
                 
                 if (!initData) {
                     throw new Error('InitData отсутствует');
@@ -235,33 +205,41 @@
                 
                 if (data.user) {
                     const user = data.user;
+                    const dbUser = data.database_user;
                     profileContent.innerHTML = `
                         <div class="user-info">
                             <div class="avatar">
                                 ${user.first_name ? user.first_name.charAt(0) : '?'}
                             </div>
-                            <div class="user-details">
-                                <div class="username">
+                            <div class="flex-grow-1 text-start">
+                                <div class="fw-bold">
                                     ${user.first_name || ''} ${user.last_name || ''}
-                                    ${user.username ? '@' + user.username : ''}
+                                    ${user.username ? '<small class="text-muted">@' + user.username + '</small>' : ''}
                                 </div>
-                                <div class="user-id">ID: ${user.id}</div>
-                                ${user.language_code ? `<div class="user-id">Язык: ${user.language_code}</div>` : ''}
-                                ${user.is_premium ? '<div class="user-id">⭐ Premium пользователь</div>' : ''}
+                                <small class="text-muted">ID: ${user.id}</small>
+                                ${user.language_code ? '<br><small class="text-muted">Язык: ' + user.language_code + '</small>' : ''}
+                                ${user.is_premium ? '<br><small class="text-warning">⭐ Premium пользователь</small>' : ''}
                             </div>
                         </div>
-                        <div style="font-size: 14px; color: var(--tg-theme-hint-color, #999);">
-                            Дата авторизации: ${data.auth_date ? new Date(data.auth_date * 1000).toLocaleString() : 'N/A'}
+                        ${dbUser ? `
+                        <div class="mt-3 p-3 bg-light rounded">
+                            <h6 class="mb-2">📊 Статистика:</h6>
+                            <small class="d-block">Визитов: ${dbUser.visits_count}</small>
+                            <small class="d-block">Первый визит: ${new Date(dbUser.first_seen_at).toLocaleString()}</small>
+                            <small class="d-block">Последний визит: ${new Date(dbUser.last_seen_at).toLocaleString()}</small>
+                            <span class="status-indicator ${dbUser.is_online ? 'status-online' : 'status-offline'}"></span>
+                            <small>${dbUser.is_online ? 'Онлайн' : 'Оффлайн'}</small>
                         </div>
+                        ` : ''}
                     `;
                 } else {
-                    profileContent.innerHTML = '<div class="error">Данные пользователя не найдены</div>';
+                    profileContent.innerHTML = '<div class="alert alert-warning">Данные пользователя не найдены</div>';
                 }
                 
             } catch (error) {
                 console.error('Ошибка загрузки профиля:', error);
                 document.getElementById('profile-content').innerHTML = 
-                    `<div class="error">Ошибка: ${error.message}</div>`;
+                    `<div class="alert alert-danger">Ошибка: ${error.message}</div>`;
             }
         }
         
@@ -269,7 +247,7 @@
         async function loadDebugInfo() {
             try {
                 const debugContent = document.getElementById('debug-content');
-                debugContent.innerHTML = '<div class="loading">Загрузка...</div>';
+                debugContent.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm me-2" role="status"></div>Загрузка...</div>';
                 
                 if (!initData) {
                     throw new Error('InitData отсутствует');
@@ -296,7 +274,7 @@
             } catch (error) {
                 console.error('Ошибка загрузки debug информации:', error);
                 document.getElementById('debug-content').innerHTML = 
-                    `<div class="error">Ошибка: ${error.message}</div>`;
+                    `<div class="alert alert-danger">Ошибка: ${error.message}</div>`;
             }
         }
         
@@ -310,9 +288,9 @@
                 loadDebugInfo();
             } else {
                 document.getElementById('profile-content').innerHTML = 
-                    '<div class="error">InitData отсутствует. Откройте приложение через Telegram.</div>';
+                    '<div class="alert alert-warning">InitData отсутствует. Откройте приложение через Telegram.</div>';
                 document.getElementById('debug-content').innerHTML = 
-                    '<div class="error">InitData отсутствует. Откройте приложение через Telegram.</div>';
+                    '<div class="alert alert-warning">InitData отсутствует. Откройте приложение через Telegram.</div>';
             }
         });
         

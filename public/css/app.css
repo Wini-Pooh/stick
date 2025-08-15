@@ -1,0 +1,144 @@
+/* Custom CSS for Telegram Mini App */
+
+/* Body */
+body {
+    background-color: #f8fafc;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+/* Telegram Mini App specific styles */
+.miniapp-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 16px;
+}
+
+.miniapp-header {
+    text-align: center;
+    margin-bottom: 24px;
+    padding: 20px;
+    background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+    border-radius: 12px;
+}
+
+.miniapp-section {
+    background: var(--tg-theme-secondary-bg-color, #f8f8f8);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.miniapp-button {
+    background: var(--tg-theme-button-color, #007bff);
+    color: var(--tg-theme-button-text-color, #ffffff);
+    border: none;
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    width: 100%;
+    margin: 8px 0;
+    transition: opacity 0.2s;
+}
+
+.miniapp-button:hover {
+    opacity: 0.8;
+}
+
+.debug-info {
+    background: #f5f5f5;
+    border-radius: 8px;
+    padding: 12px;
+    font-family: monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.user-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--tg-theme-button-color, #007bff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+}
+
+.status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.status-online {
+    background: #28a745;
+}
+
+.status-offline {
+    background: #dc3545;
+}
+
+/* Test page styles */
+.test-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.status-success { 
+    background: #d4edda; 
+    color: #155724; 
+    padding: 10px;
+    border-radius: 6px;
+    margin: 10px 0;
+}
+
+.status-error { 
+    background: #f8d7da; 
+    color: #721c24; 
+    padding: 10px;
+    border-radius: 6px;
+    margin: 10px 0;
+}
+
+.status-info { 
+    background: #d1ecf1; 
+    color: #0c5460; 
+    padding: 10px;
+    border-radius: 6px;
+    margin: 10px 0;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .miniapp-container {
+        padding: 12px;
+    }
+    
+    .miniapp-section {
+        padding: 12px;
+    }
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: var(--tg-theme-bg-color, #1a1a1a);
+        color: var(--tg-theme-text-color, #ffffff);
+    }
+    
+    .test-card {
+        background: var(--tg-theme-secondary-bg-color, #2a2a2a);
+        color: var(--tg-theme-text-color, #ffffff);
+    }
+}
