@@ -290,6 +290,8 @@ class MiniAppController extends Controller
             $initData = $request->input('initData') ?? $request->header('X-Telegram-Init-Data');
             $score = $request->input('score', 0);
             $highScore = $request->input('high_score', 0);
+            $totalScore = $request->input('total_score', 0);
+            $gamesPlayed = $request->input('games_played', 0);
             
             if ($initData) {
                 $telegramData = $this->parseInitDataSafely($initData);
@@ -304,6 +306,9 @@ class MiniAppController extends Controller
                         [
                             'score' => $score,
                             'high_score' => $highScore,
+                            'total_score' => $totalScore,
+                            'games_played' => $gamesPlayed,
+                            'timestamp' => now(),
                         ],
                         $request
                     );
@@ -314,6 +319,8 @@ class MiniAppController extends Controller
                         'user' => $telegramUser->display_name,
                         'score' => $score,
                         'high_score' => $highScore,
+                        'total_score' => $totalScore,
+                        'games_played' => $gamesPlayed,
                     ]);
                 }
             }
@@ -328,6 +335,59 @@ class MiniAppController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Ошибка сохранения результата',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Получение статистики игрока по змейке
+     */
+    public function getGameStats(Request $request)
+    {
+        try {
+            $initData = $request->input('initData') ?? $request->header('X-Telegram-Init-Data');
+            
+            if ($initData) {
+                $telegramData = $this->parseInitDataSafely($initData);
+                $telegramUser = TelegramUser::createOrUpdate($telegramData);
+                
+                if ($telegramUser) {
+                    // Получаем статистику игры из активности пользователя
+                    $gameActivities = TelegramUserActivity::where('telegram_user_id', $telegramUser->id)
+                        ->where('action', 'snake_game_score')
+                        ->orderBy('created_at', 'desc')
+                        ->get();
+                    
+                    $stats = [
+                        'total_games' => $gameActivities->count(),
+                        'best_score' => $gameActivities->max('data->score') ?? 0,
+                        'total_score' => $gameActivities->sum('data->score') ?? 0,
+                        'recent_scores' => $gameActivities->take(10)->pluck('data.score'),
+                        'last_played' => $gameActivities->first()->created_at ?? null,
+                    ];
+                    
+                    return response()->json([
+                        'success' => true,
+                        'user' => [
+                            'name' => $telegramUser->display_name,
+                            'avatar' => $telegramUser->first_name ? $telegramUser->first_name[0] : '?',
+                        ],
+                        'stats' => $stats,
+                    ]);
+                }
+            }
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Пользователь не найден',
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error getting game stats: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Ошибка получения статистики',
                 'error' => $e->getMessage(),
             ], 500);
         }

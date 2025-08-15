@@ -50,6 +50,7 @@ Route::prefix('miniapp')->group(function () {
     Route::post('/profile-debug', [App\Http\Controllers\MiniAppController::class, 'profileDebug'])->name('miniapp.profile-debug');
     Route::post('/debug-debug', [App\Http\Controllers\MiniAppController::class, 'debugInfoDebug'])->name('miniapp.debug-debug');
     Route::post('/save-score', [App\Http\Controllers\MiniAppController::class, 'saveGameScore'])->name('miniapp.save-score');
+    Route::post('/game-stats', [App\Http\Controllers\MiniAppController::class, 'getGameStats'])->name('miniapp.game-stats');
     
     // Статистика (открытый endpoint для демонстрации)
     Route::get('/stats', [App\Http\Controllers\MiniAppController::class, 'userStats'])->name('miniapp.stats');
