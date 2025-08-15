@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 use App\Models\TelegramUser;
 use App\Models\TelegramUserActivity;
 
@@ -389,6 +390,101 @@ class MiniAppController extends Controller
                 'success' => false,
                 'message' => 'Ошибка получения статистики',
                 'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Получение фото профиля пользователя через Telegram Bot API
+     */
+    public function getUserPhoto(Request $request)
+    {
+        try {
+            $userId = $request->input('user_id');
+            $initData = $request->input('initData');
+            
+            if (!$userId) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'User ID not provided'
+                ], 400);
+            }
+            
+            $botToken = env('TELEGRAM_BOT_TOKEN');
+            if (!$botToken) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Bot token not configured'
+                ], 500);
+            }
+            
+            // Получаем информацию о пользователе через Bot API
+            $response = Http::get("https://api.telegram.org/bot{$botToken}/getUserProfilePhotos", [
+                'user_id' => $userId,
+                'limit' => 1
+            ]);
+            
+            if (!$response->successful()) {
+                Log::warning('Failed to get user profile photos', [
+                    'user_id' => $userId,
+                    'response' => $response->body()
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Failed to get profile photos'
+                ], 500);
+            }
+            
+            $data = $response->json();
+            
+            if ($data['ok'] && $data['result']['total_count'] > 0) {
+                // Получаем первое фото (самое большое разрешение)
+                $photos = $data['result']['photos'][0];
+                $largestPhoto = end($photos); // Последний элемент - самое большое разрешение
+                
+                // Получаем файл
+                $fileResponse = Http::get("https://api.telegram.org/bot{$botToken}/getFile", [
+                    'file_id' => $largestPhoto['file_id']
+                ]);
+                
+                if ($fileResponse->successful()) {
+                    $fileData = $fileResponse->json();
+                    
+                    if ($fileData['ok']) {
+                        $filePath = $fileData['result']['file_path'];
+                        $photoUrl = "https://api.telegram.org/file/bot{$botToken}/{$filePath}";
+                        
+                        Log::info('Successfully got user photo', [
+                            'user_id' => $userId,
+                            'photo_url' => $photoUrl
+                        ]);
+                        
+                        return response()->json([
+                            'success' => true,
+                            'photo_url' => $photoUrl,
+                            'file_size' => $largestPhoto['file_size'] ?? null,
+                            'width' => $largestPhoto['width'] ?? null,
+                            'height' => $largestPhoto['height'] ?? null,
+                        ]);
+                    }
+                }
+            }
+            
+            // Если фото не найдено
+            return response()->json([
+                'success' => false,
+                'error' => 'No profile photo found'
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error getting user photo', [
+                'user_id' => $request->input('user_id'),
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'Internal server error'
             ], 500);
         }
     }
