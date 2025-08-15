@@ -280,4 +280,56 @@ class MiniAppController extends Controller
             'stats' => $stats,
         ]);
     }
+
+    /**
+     * Сохранение результата игры "Змейка"
+     */
+    public function saveGameScore(Request $request)
+    {
+        try {
+            $initData = $request->input('initData') ?? $request->header('X-Telegram-Init-Data');
+            $score = $request->input('score', 0);
+            $highScore = $request->input('high_score', 0);
+            
+            if ($initData) {
+                $telegramData = $this->parseInitDataSafely($initData);
+                $telegramUser = TelegramUser::createOrUpdate($telegramData);
+                
+                if ($telegramUser) {
+                    // Логируем результат игры
+                    TelegramUserActivity::log(
+                        $telegramUser,
+                        'snake_game_score',
+                        'miniapp.save-score',
+                        [
+                            'score' => $score,
+                            'high_score' => $highScore,
+                        ],
+                        $request
+                    );
+                    
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Результат сохранён!',
+                        'user' => $telegramUser->display_name,
+                        'score' => $score,
+                        'high_score' => $highScore,
+                    ]);
+                }
+            }
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Не удалось сохранить результат',
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error saving game score: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Ошибка сохранения результата',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }

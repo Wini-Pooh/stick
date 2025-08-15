@@ -49,6 +49,7 @@ Route::prefix('miniapp')->group(function () {
     // Временные endpoints без проверки подписи для отладки
     Route::post('/profile-debug', [App\Http\Controllers\MiniAppController::class, 'profileDebug'])->name('miniapp.profile-debug');
     Route::post('/debug-debug', [App\Http\Controllers\MiniAppController::class, 'debugInfoDebug'])->name('miniapp.debug-debug');
+    Route::post('/save-score', [App\Http\Controllers\MiniAppController::class, 'saveGameScore'])->name('miniapp.save-score');
     
     // Статистика (открытый endpoint для демонстрации)
     Route::get('/stats', [App\Http\Controllers\MiniAppController::class, 'userStats'])->name('miniapp.stats');

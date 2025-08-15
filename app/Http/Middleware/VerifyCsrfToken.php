@@ -16,5 +16,6 @@ class VerifyCsrfToken extends Middleware
         'miniapp/profile-debug',
         'miniapp/debug-debug',
         'miniapp/test-post',
+        'miniapp/save-score',
     ];
 }

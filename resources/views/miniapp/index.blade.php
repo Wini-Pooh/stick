@@ -101,13 +101,82 @@
         .status-offline {
             background: #dc3545;
         }
+        
+        /* Стили для игры Змейка */
+        .snake-game {
+            text-align: center;
+            background: var(--tg-theme-bg-color, #ffffff);
+            border-radius: 12px;
+            padding: 16px;
+        }
+        
+        #gameCanvas {
+            border: 2px solid var(--tg-theme-button-color, #007bff);
+            border-radius: 8px;
+            background: #000;
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .game-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            max-width: 200px;
+            margin: 16px auto;
+        }
+        
+        .control-btn {
+            background: var(--tg-theme-button-color, #007bff);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 16px;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        
+        .control-btn:active {
+            opacity: 0.7;
+        }
+        
+        .game-stats {
+            display: flex;
+            justify-content: space-between;
+            margin: 16px 0;
+            font-weight: bold;
+        }
+        
+        .empty-control {
+            grid-column: 1;
+        }
+        
+        .up-btn {
+            grid-column: 2;
+        }
+        
+        .left-btn {
+            grid-column: 1;
+            grid-row: 2;
+        }
+        
+        .right-btn {
+            grid-column: 3;
+            grid-row: 2;
+        }
+        
+        .down-btn {
+            grid-column: 2;
+            grid-row: 3;
+        }
     </style>
 </head>
 <body>
     <div class="miniapp-container">
         <div class="miniapp-header">
-            <h1 class="h3 mb-2">🚀 Telegram Mini App</h1>
-            <p class="text-muted mb-0">Профиль пользователя и отладочная информация</p>
+            <h1 class="h3 mb-2">� Snake Game & Profile</h1>
+            <p class="text-muted mb-0">Змейка и профиль пользователя</p>
         </div>
 
         <div class="miniapp-section">
@@ -119,13 +188,30 @@
             <button class="miniapp-button mt-3" onclick="loadProfile()">🔄 Обновить профиль</button>
         </div>
 
-        <div class="miniapp-section">
-            <h2 class="h5 mb-3">🐛 Отладочная информация</h2>
-            <div id="debug-content" class="text-center text-muted">
-                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                Загрузка отладочной информации...
+        <div class="miniapp-section snake-game">
+            <h2 class="h5 mb-3">� Змейка</h2>
+            <canvas id="gameCanvas" width="300" height="300"></canvas>
+            
+            <div class="game-stats">
+                <span>Счёт: <span id="score">0</span></span>
+                <span>Рекорд: <span id="highScore">0</span></span>
             </div>
-            <button class="miniapp-button mt-3" onclick="loadDebugInfo()">🔄 Обновить debug</button>
+            
+            <div class="game-controls">
+                <div class="empty-control"></div>
+                <button class="control-btn up-btn" onclick="changeDirection('up')">↑</button>
+                <div></div>
+                <button class="control-btn left-btn" onclick="changeDirection('left')">←</button>
+                <button class="control-btn" onclick="toggleGame()" id="playBtn">▶️ ИГРАТЬ</button>
+                <button class="control-btn right-btn" onclick="changeDirection('right')">→</button>
+                <div></div>
+                <button class="control-btn down-btn" onclick="changeDirection('down')">↓</button>
+                <div></div>
+            </div>
+            
+            <p class="text-muted mt-2">
+                <small>Управление: кнопки или свайпы по экрану</small>
+            </p>
         </div>
 
         <div class="miniapp-section">
@@ -134,11 +220,6 @@
                 Нажмите кнопку для тестирования соединения
             </div>
             <button class="miniapp-button mt-3" onclick="testConnection()">🧪 Тест POST запроса</button>
-        </div>
-
-        <div class="miniapp-section">
-            <h2 class="h5 mb-3">⚙️ Telegram WebApp API</h2>
-            <div id="webapp-info" class="debug-info"></div>
         </div>
     </div>
 
@@ -188,6 +269,309 @@
         
         console.log('Final initData:', initData);
         console.log('Telegram WebApp object:', tg);
+        
+        // Игра Змейка
+        class SnakeGame {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.gridSize = 15;
+                this.tileCount = this.canvas.width / this.gridSize;
+                
+                this.snake = [
+                    {x: 10, y: 10}
+                ];
+                this.food = {};
+                this.dx = 0;
+                this.dy = 0;
+                this.score = 0;
+                this.highScore = localStorage.getItem('snakeHighScore') || 0;
+                this.gameRunning = false;
+                
+                this.generateFood();
+                this.updateScore();
+                this.setupTouchControls();
+                this.draw();
+            }
+            
+            generateFood() {
+                this.food = {
+                    x: Math.floor(Math.random() * this.tileCount),
+                    y: Math.floor(Math.random() * this.tileCount)
+                };
+                
+                // Проверяем, что еда не появилась на змее
+                for (let segment of this.snake) {
+                    if (segment.x === this.food.x && segment.y === this.food.y) {
+                        this.generateFood();
+                        break;
+                    }
+                }
+            }
+            
+            draw() {
+                // Очищаем canvas
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Рисуем змею
+                this.ctx.fillStyle = '#0f0';
+                for (let segment of this.snake) {
+                    this.ctx.fillRect(segment.x * this.gridSize, segment.y * this.gridSize, this.gridSize - 2, this.gridSize - 2);
+                }
+                
+                // Рисуем голову змеи другим цветом
+                if (this.snake.length > 0) {
+                    this.ctx.fillStyle = '#f0f';
+                    const head = this.snake[0];
+                    this.ctx.fillRect(head.x * this.gridSize, head.y * this.gridSize, this.gridSize - 2, this.gridSize - 2);
+                }
+                
+                // Рисуем еду
+                this.ctx.fillStyle = '#f00';
+                this.ctx.fillRect(this.food.x * this.gridSize, this.food.y * this.gridSize, this.gridSize - 2, this.gridSize - 2);
+            }
+            
+            update() {
+                if (!this.gameRunning) return;
+                
+                const head = {x: this.snake[0].x + this.dx, y: this.snake[0].y + this.dy};
+                
+                // Проверка столкновения со стенами
+                if (head.x < 0 || head.x >= this.tileCount || head.y < 0 || head.y >= this.tileCount) {
+                    this.gameOver();
+                    return;
+                }
+                
+                // Проверка столкновения с собой
+                for (let segment of this.snake) {
+                    if (head.x === segment.x && head.y === segment.y) {
+                        this.gameOver();
+                        return;
+                    }
+                }
+                
+                this.snake.unshift(head);
+                
+                // Проверка поедания еды
+                if (head.x === this.food.x && head.y === this.food.y) {
+                    this.score += 10;
+                    this.generateFood();
+                    this.updateScore();
+                    
+                    // Вибрация при поедании еды
+                    if (tg.HapticFeedback) {
+                        tg.HapticFeedback.impactOccurred('light');
+                    }
+                } else {
+                    this.snake.pop();
+                }
+                
+                this.draw();
+            }
+            
+            gameOver() {
+                this.gameRunning = false;
+                
+                // Сохраняем результат на сервере
+                this.saveScore();
+                
+                // Обновляем рекорд
+                if (this.score > this.highScore) {
+                    this.highScore = this.score;
+                    localStorage.setItem('snakeHighScore', this.highScore);
+                    
+                    // Вибрация при новом рекорде
+                    if (tg.HapticFeedback) {
+                        tg.HapticFeedback.notificationOccurred('success');
+                    }
+                    
+                    // Показываем уведомление о новом рекорде
+                    tg.showAlert('🎉 Новый рекорд! Счёт: ' + this.score);
+                } else {
+                    if (tg.HapticFeedback) {
+                        tg.HapticFeedback.notificationOccurred('error');
+                    }
+                    tg.showAlert('💀 Игра окончена! Счёт: ' + this.score);
+                }
+                
+                this.updateScore();
+                document.getElementById('playBtn').textContent = '▶️ ИГРАТЬ';
+            }
+            
+            saveScore() {
+                if (this.score > 0 && initData) {
+                    fetch('/miniapp/save-score', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            initData: initData,
+                            score: this.score,
+                            high_score: this.highScore
+                        })
+                    }).then(response => response.json())
+                    .then(data => {
+                        console.log('Score saved:', data);
+                    })
+                    .catch(error => {
+                        console.error('Error saving score:', error);
+                    });
+                }
+            }
+            
+            start() {
+                this.snake = [{x: 10, y: 10}];
+                this.dx = 0;
+                this.dy = 0;
+                this.score = 0;
+                this.gameRunning = true;
+                this.generateFood();
+                this.updateScore();
+                this.draw();
+                document.getElementById('playBtn').textContent = '⏸️ ПАУЗА';
+            }
+            
+            pause() {
+                this.gameRunning = false;
+                document.getElementById('playBtn').textContent = '▶️ ПРОДОЛЖИТЬ';
+            }
+            
+            resume() {
+                this.gameRunning = true;
+                document.getElementById('playBtn').textContent = '⏸️ ПАУЗА';
+            }
+            
+            changeDirection(direction) {
+                if (!this.gameRunning) return;
+                
+                const goingUp = this.dy === -1;
+                const goingDown = this.dy === 1;
+                const goingRight = this.dx === 1;
+                const goingLeft = this.dx === -1;
+                
+                if (direction === 'up' && !goingDown) {
+                    this.dx = 0;
+                    this.dy = -1;
+                }
+                if (direction === 'down' && !goingUp) {
+                    this.dx = 0;
+                    this.dy = 1;
+                }
+                if (direction === 'left' && !goingRight) {
+                    this.dx = -1;
+                    this.dy = 0;
+                }
+                if (direction === 'right' && !goingLeft) {
+                    this.dx = 1;
+                    this.dy = 0;
+                }
+            }
+            
+            updateScore() {
+                document.getElementById('score').textContent = this.score;
+                document.getElementById('highScore').textContent = this.highScore;
+            }
+            
+            setupTouchControls() {
+                let startX, startY;
+                
+                this.canvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    startX = touch.clientX;
+                    startY = touch.clientY;
+                });
+                
+                this.canvas.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    if (!startX || !startY) return;
+                    
+                    const touch = e.changedTouches[0];
+                    const endX = touch.clientX;
+                    const endY = touch.clientY;
+                    
+                    const diffX = startX - endX;
+                    const diffY = startY - endY;
+                    
+                    if (Math.abs(diffX) > Math.abs(diffY)) {
+                        // Горизонтальный свайп
+                        if (diffX > 0) {
+                            this.changeDirection('left');
+                        } else {
+                            this.changeDirection('right');
+                        }
+                    } else {
+                        // Вертикальный свайп
+                        if (diffY > 0) {
+                            this.changeDirection('up');
+                        } else {
+                            this.changeDirection('down');
+                        }
+                    }
+                    
+                    startX = null;
+                    startY = null;
+                });
+            }
+        }
+        
+        // Инициализируем игру
+        let game;
+        
+        function initGame() {
+            game = new SnakeGame();
+            
+            // Игровой цикл
+            setInterval(() => {
+                game.update();
+            }, 150);
+        }
+        
+        function toggleGame() {
+            if (!game.gameRunning) {
+                if (game.score === 0 && game.snake.length === 1) {
+                    game.start();
+                } else {
+                    game.resume();
+                }
+            } else {
+                game.pause();
+            }
+        }
+        
+        function changeDirection(direction) {
+            game.changeDirection(direction);
+        }
+        
+        // Клавиатурное управление
+        document.addEventListener('keydown', (e) => {
+            if (game) {
+                switch(e.key) {
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        game.changeDirection('up');
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        game.changeDirection('down');
+                        break;
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        game.changeDirection('left');
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        game.changeDirection('right');
+                        break;
+                    case ' ':
+                        e.preventDefault();
+                        toggleGame();
+                        break;
+                }
+            }
+        });
         
         // Показать информацию о Telegram WebApp
         function showWebAppInfo() {
@@ -382,22 +766,23 @@
         // Инициализация при загрузке страницы
         document.addEventListener('DOMContentLoaded', function() {
             showWebAppInfo();
+            initGame(); // Инициализируем игру
             
             // Если есть initData, загружаем данные
             if (initData) {
                 loadProfile();
-                loadDebugInfo();
             } else {
                 document.getElementById('profile-content').innerHTML = 
-                    '<div class="alert alert-warning">InitData отсутствует. Откройте приложение через Telegram.</div>';
-                document.getElementById('debug-content').innerHTML = 
                     '<div class="alert alert-warning">InitData отсутствует. Откройте приложение через Telegram.</div>';
             }
         });
         
         // Обработка событий Telegram WebApp
         tg.onEvent('mainButtonClicked', function() {
-            tg.sendData('main_button_clicked');
+            // Отправляем текущий счёт в Telegram
+            const currentScore = game ? game.score : 0;
+            const highScore = game ? game.highScore : 0;
+            tg.sendData(`score:${currentScore},highScore:${highScore}`);
         });
         
         tg.onEvent('backButtonClicked', function() {
@@ -405,10 +790,18 @@
         });
         
         // Показать главную кнопку
-        tg.MainButton.setText('Закрыть приложение');
+        tg.MainButton.setText('Поделиться результатом');
         tg.MainButton.show();
         tg.MainButton.onClick(function() {
-            tg.close();
+            const currentScore = game ? game.score : 0;
+            const highScore = game ? game.highScore : 0;
+            
+            if (currentScore > 0 || highScore > 0) {
+                tg.sendData(`snake_game_score:${currentScore},high_score:${highScore}`);
+                tg.showAlert(`🐍 Результат: ${currentScore} очков\n🏆 Рекорд: ${highScore} очков`);
+            } else {
+                tg.showAlert('Начните игру, чтобы поделиться результатом!');
+            }
         });
         
         // Включить подтверждение закрытия
