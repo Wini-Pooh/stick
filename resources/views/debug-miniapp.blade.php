@@ -210,8 +210,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken,
-                        'X-Telegram-Init-Data': initData
+                        'X-CSRF-TOKEN': csrfToken
                     },
                     body: JSON.stringify({ 
                         initData: initData,
@@ -236,8 +235,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken,
-                        'X-Telegram-Init-Data': initData
+                        'X-CSRF-TOKEN': csrfToken
                     },
                     body: JSON.stringify({ initData: initData })
                 });
@@ -259,8 +257,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken,
-                        'X-Telegram-Init-Data': initData
+                        'X-CSRF-TOKEN': csrfToken
                     },
                     body: JSON.stringify({ initData: initData })
                 });
