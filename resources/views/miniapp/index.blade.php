@@ -7,105 +7,149 @@
     <title>Змейка | Telegram Mini App</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            touch-action: none;
+        /* Высокоприоритетные стили для перебивания Telegram стилей */
+        html, html body {
+            margin: 0 !important;
+            padding: 0 !important;
+            box-sizing: border-box !important;
+            touch-action: none !important;
+            -webkit-touch-callout: none !important;
+            -webkit-user-select: none !important;
+            -khtml-user-select: none !important;
+            -moz-user-select: none !important;
+            -ms-user-select: none !important;
+            user-select: none !important;
         }
         
-        body {
-            background-color: var(--tg-theme-bg-color, #000000);
-            color: var(--tg-theme-text-color, #ffffff);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            overscroll-behavior: contain;
-            overflow: hidden;
-            position: fixed;
-            width: 100%;
-            height: 100%;
+        html body.miniapp-game {
+            background-color: var(--tg-theme-bg-color, #000000) !important;
+            color: var(--tg-theme-text-color, #ffffff) !important;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+            overscroll-behavior: contain !important;
+            overflow: hidden !important;
+            position: fixed !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 100vh !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
         }
         
-        #game-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
+        body.miniapp-game #game-container {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            z-index: 1000 !important;
         }
         
-        #game-canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
+        body.miniapp-game #game-canvas {
+            width: 100% !important;
+            height: 100% !important;
+            display: block !important;
+            border: none !important;
+            outline: none !important;
+            background: transparent !important;
         }
         
-        #score-display {
-            position: absolute;
-            top: env(safe-area-inset-top, 10px);
-            left: 10px;
-            padding: 5px 10px;
-            background-color: rgba(0, 0, 0, 0.5);
-            color: white;
-            border-radius: 12px;
-            font-size: 18px;
-            font-weight: bold;
-            z-index: 100;
+        body.miniapp-game #score-display {
+            position: absolute !important;
+            top: env(safe-area-inset-top, 10px) !important;
+            left: 10px !important;
+            padding: 5px 10px !important;
+            background-color: rgba(0, 0, 0, 0.7) !important;
+            color: white !important;
+            border-radius: 12px !important;
+            font-size: 18px !important;
+            font-weight: bold !important;
+            z-index: 1100 !important;
+            border: none !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
         }
         
-        #game-over {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
-            display: none;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 200;
-            color: white;
+        body.miniapp-game #game-over {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            background-color: rgba(0, 0, 0, 0.9) !important;
+            display: none !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            align-items: center !important;
+            z-index: 1200 !important;
+            color: white !important;
         }
         
-        #game-over h2 {
-            font-size: 32px;
-            margin-bottom: 20px;
+        body.miniapp-game #game-over h2 {
+            font-size: 32px !important;
+            margin-bottom: 20px !important;
+            color: white !important;
+            font-weight: bold !important;
+            text-align: center !important;
         }
         
-        #game-over p {
-            font-size: 24px;
-            margin-bottom: 30px;
+        body.miniapp-game #game-over p {
+            font-size: 24px !important;
+            margin-bottom: 30px !important;
+            color: white !important;
+            text-align: center !important;
         }
         
-        .btn {
-            padding: 12px 24px;
-            background-color: var(--tg-theme-button-color, #2AABEE);
-            color: var(--tg-theme-button-text-color, #ffffff);
-            border: none;
-            border-radius: 12px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 10px;
+        body.miniapp-game .btn,
+        body.miniapp-game #restart-btn {
+            padding: 12px 24px !important;
+            background-color: var(--tg-theme-button-color, #2AABEE) !important;
+            color: var(--tg-theme-button-text-color, #ffffff) !important;
+            border: none !important;
+            border-radius: 12px !important;
+            font-size: 18px !important;
+            font-weight: bold !important;
+            cursor: pointer !important;
+            margin-top: 10px !important;
+            outline: none !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+            text-decoration: none !important;
+            display: inline-block !important;
+            min-width: 120px !important;
+            text-align: center !important;
         }
         
-        .controls-hint {
-            position: absolute;
-            bottom: env(safe-area-inset-bottom, 20px);
-            left: 0;
-            width: 100%;
-            text-align: center;
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 14px;
-            pointer-events: none;
-            opacity: 0.8;
-            z-index: 100;
+        body.miniapp-game .btn:hover,
+        body.miniapp-game #restart-btn:hover {
+            opacity: 0.8 !important;
+            transform: translateY(-1px) !important;
+            transition: all 0.2s ease !important;
+        }
+        
+        body.miniapp-game .controls-hint {
+            position: absolute !important;
+            bottom: env(safe-area-inset-bottom, 20px) !important;
+            left: 0 !important;
+            width: 100% !important;
+            text-align: center !important;
+            color: rgba(255, 255, 255, 0.6) !important;
+            font-size: 14px !important;
+            pointer-events: none !important;
+            opacity: 0.8 !important;
+            z-index: 1100 !important;
+            padding: 10px !important;
+        }
+        
+        /* Дополнительная защита от стилей Telegram */
+        body.miniapp-game * {
+            -webkit-tap-highlight-color: transparent !important;
+            -webkit-focus-ring-color: transparent !important;
         }
     </style>
 </head>
-<body>
+<body class="miniapp-game">
     <div id="game-container">
         <div id="score-display">Счёт: 0</div>
         <canvas id="game-canvas"></canvas>
@@ -123,15 +167,47 @@
         tg.expand();
         tg.ready();
         
+        // Принудительно применяем стили для перебивания Telegram стилей
+        function enforceGameStyles() {
+            const body = document.body;
+            const gameContainer = document.getElementById('game-container');
+            
+            // Принудительно устанавливаем стили body
+            body.style.setProperty('margin', '0', 'important');
+            body.style.setProperty('padding', '0', 'important');
+            body.style.setProperty('overflow', 'hidden', 'important');
+            body.style.setProperty('position', 'fixed', 'important');
+            body.style.setProperty('width', '100%', 'important');
+            body.style.setProperty('height', '100%', 'important');
+            body.style.setProperty('top', '0', 'important');
+            body.style.setProperty('left', '0', 'important');
+            body.style.setProperty('right', '0', 'important');
+            body.style.setProperty('bottom', '0', 'important');
+            
+            // Принудительно устанавливаем стили игрового контейнера
+            if (gameContainer) {
+                gameContainer.style.setProperty('position', 'absolute', 'important');
+                gameContainer.style.setProperty('top', '0', 'important');
+                gameContainer.style.setProperty('left', '0', 'important');
+                gameContainer.style.setProperty('width', '100%', 'important');
+                gameContainer.style.setProperty('height', '100%', 'important');
+                gameContainer.style.setProperty('z-index', '1000', 'important');
+            }
+        }
+        
+        // Применяем стили при загрузке и через интервал для надежности
+        enforceGameStyles();
+        setInterval(enforceGameStyles, 100);
+        
         // Получаем цвета из темы Telegram
         const backgroundColor = tg.themeParams.bg_color || '#000000';
         const textColor = tg.themeParams.text_color || '#ffffff';
         const buttonColor = tg.themeParams.button_color || '#2AABEE';
         const buttonTextColor = tg.themeParams.button_text_color || '#ffffff';
         
-        // Применяем цвета
-        document.body.style.backgroundColor = backgroundColor;
-        document.body.style.color = textColor;
+        // Применяем цвета принудительно
+        document.body.style.setProperty('background-color', backgroundColor, 'important');
+        document.body.style.setProperty('color', textColor, 'important');
         
         // Настройки игры
         const canvas = document.getElementById('game-canvas');
@@ -210,16 +286,16 @@
             
             // Вычисляем размер клетки исходя из размера экрана
             cellSize = Math.min(
-                Math.floor(width / gridSize.width), 
-                Math.floor(height / gridSize.height)
+                Math.floor(width / (gridSize.width + 2)), // +2 для стен по бокам
+                Math.floor(height / (gridSize.height + 2)) // +2 для стен сверху и снизу
             );
         }
         
         // Размещаем еду в случайном месте
         function placeFood() {
-            // Генерируем случайные координаты
-            const x = Math.floor(Math.random() * gridSize.width);
-            const y = Math.floor(Math.random() * gridSize.height);
+            // Генерируем случайные координаты (с учетом стен)
+            const x = Math.floor(Math.random() * (gridSize.width - 2)) + 1;
+            const y = Math.floor(Math.random() * (gridSize.height - 2)) + 1;
             
             // Проверяем, не совпадает ли с телом змеи
             const isOnSnake = snake.some(segment => segment.x === x && segment.y === y);
@@ -230,6 +306,11 @@
             } else {
                 food = { x, y };
             }
+        }
+        
+        // Проверяем, является ли клетка стеной
+        function isWall(x, y) {
+            return x === 0 || y === 0 || x === gridSize.width - 1 || y === gridSize.height - 1;
         }
         
         // Обновляем положение змейки
@@ -251,10 +332,10 @@
             head.y += direction.y;
             
             // Проверяем столкновения со стенами
-            if (head.x < 0) head.x = gridSize.width - 1;
-            if (head.x >= gridSize.width) head.x = 0;
-            if (head.y < 0) head.y = gridSize.height - 1;
-            if (head.y >= gridSize.height) head.y = 0;
+            if (isWall(head.x, head.y)) {
+                endGame();
+                return;
+            }
             
             // Проверяем столкновения с самой собой
             if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
@@ -290,6 +371,21 @@
             // Вычисляем смещение для центрирования игрового поля
             const offsetX = (canvas.width - cellSize * gridSize.width) / 2;
             const offsetY = (canvas.height - cellSize * gridSize.height) / 2;
+            
+            // Рисуем стены (белым цветом)
+            ctx.fillStyle = '#FFFFFF';
+            for (let x = 0; x < gridSize.width; x++) {
+                for (let y = 0; y < gridSize.height; y++) {
+                    if (isWall(x, y)) {
+                        ctx.fillRect(
+                            offsetX + x * cellSize, 
+                            offsetY + y * cellSize, 
+                            cellSize, 
+                            cellSize
+                        );
+                    }
+                }
+            }
             
             // Рисуем еду
             ctx.fillStyle = '#FF4136'; // красный цвет
