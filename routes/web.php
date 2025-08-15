@@ -32,8 +32,18 @@ Route::prefix('miniapp')->group(function () {
     // Главная страница Mini App (без middleware для первоначальной загрузки)
     Route::get('/', [App\Http\Controllers\MiniAppController::class, 'index'])->name('miniapp.index');
     
+    // Debug страница для диагностики
+    Route::get('/debug-page', function () {
+        return view('debug-miniapp');
+    })->name('miniapp.debug-page');
+    
     // Test endpoint без проверки подписи
     Route::get('/test', [App\Http\Controllers\MiniAppController::class, 'testEndpoint'])->name('miniapp.test');
+    Route::post('/test-post', [App\Http\Controllers\MiniAppController::class, 'testPostEndpoint'])->name('miniapp.test-post');
+    
+    // Временные endpoints без проверки подписи для отладки
+    Route::post('/profile-debug', [App\Http\Controllers\MiniAppController::class, 'profileDebug'])->name('miniapp.profile-debug');
+    Route::post('/debug-debug', [App\Http\Controllers\MiniAppController::class, 'debugInfoDebug'])->name('miniapp.debug-debug');
     
     // Статистика (открытый endpoint для демонстрации)
     Route::get('/stats', [App\Http\Controllers\MiniAppController::class, 'userStats'])->name('miniapp.stats');

@@ -15,7 +15,7 @@ class TelegramBotController extends Controller
 
     public function __construct()
     {
-        $this->botToken = env('TELEGRAM_BOT_TOKEN' ?? '8410914085:AAEkR3kyRw-lvb8WRP0MRQugvpEH-fkhLp4');
+        $this->botToken = env('TELEGRAM_BOT_TOKEN' , '8410914085:AAEkR3kyRw-lvb8WRP0MRQugvpEH-fkhLp4');
         $this->botUrl = "https://api.telegram.org/bot{$this->botToken}";
     }
 

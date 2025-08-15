@@ -165,6 +165,96 @@ class MiniAppController extends Controller
     }
 
     /**
+     * POST endpoint для тестирования без проверки подписи
+     */
+    public function testPostEndpoint(Request $request)
+    {
+        return response()->json([
+            'success' => true,
+            'message' => 'Test POST endpoint working',
+            'timestamp' => now()->toISOString(),
+            'request_data' => [
+                'method' => $request->method(),
+                'headers' => $request->headers->all(),
+                'body' => $request->all(),
+                'initData_present' => !empty($request->input('initData')),
+                'initData_length' => strlen($request->input('initData', '')),
+            ],
+        ]);
+    }
+
+    /**
+     * Профиль пользователя без проверки подписи (для отладки)
+     */
+    public function profileDebug(Request $request)
+    {
+        $initData = $request->input('initData') ?? $request->header('X-Telegram-Init-Data');
+        
+        if (!$initData) {
+            return response()->json([
+                'error' => 'No initData provided',
+                'debug' => [
+                    'headers' => $request->headers->all(),
+                    'body' => $request->all(),
+                ]
+            ], 400);
+        }
+
+        // Парсим данные без проверки подписи
+        parse_str($initData, $data);
+        $userFromTelegram = isset($data['user']) ? json_decode($data['user'], true) : null;
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Profile debug endpoint (no signature validation)',
+            'user' => $userFromTelegram,
+            'raw_data' => $data,
+            'timestamp' => now()->toISOString(),
+        ]);
+    }
+
+    /**
+     * Debug информация без проверки подписи (для отладки)
+     */
+    public function debugInfoDebug(Request $request)
+    {
+        $initData = $request->input('initData') ?? $request->header('X-Telegram-Init-Data');
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Debug endpoint (no signature validation)',
+            'debug_info' => [
+                'initData_present' => !empty($initData),
+                'initData_length' => strlen($initData ?: ''),
+                'initData_sample' => substr($initData ?: '', 0, 100) . '...',
+                'parsed_data' => $initData ? $this->parseInitDataSafely($initData) : null,
+                'request_headers' => $request->headers->all(),
+                'request_body' => $request->all(),
+                'server_info' => [
+                    'php_version' => PHP_VERSION,
+                    'laravel_version' => app()->version(),
+                    'database_connection' => config('database.default'),
+                    'app_env' => app()->environment(),
+                ],
+            ],
+            'timestamp' => now()->toISOString(),
+        ]);
+    }
+
+    /**
+     * Безопасное парсинг initData
+     */
+    private function parseInitDataSafely($initData)
+    {
+        try {
+            parse_str($initData, $data);
+            return $data;
+        } catch (\Exception $e) {
+            return ['error' => 'Failed to parse initData: ' . $e->getMessage()];
+        }
+    }
+
+    /**
      * Получить статистику пользователей (для админки)
      */
     public function userStats(Request $request)

@@ -129,6 +129,14 @@
         </div>
 
         <div class="miniapp-section">
+            <h2 class="h5 mb-3">🔧 Тестирование соединения</h2>
+            <div id="test-content" class="text-center text-muted">
+                Нажмите кнопку для тестирования соединения
+            </div>
+            <button class="miniapp-button mt-3" onclick="testConnection()">🧪 Тест POST запроса</button>
+        </div>
+
+        <div class="miniapp-section">
             <h2 class="h5 mb-3">⚙️ Telegram WebApp API</h2>
             <div id="webapp-info" class="debug-info"></div>
         </div>
@@ -150,10 +158,35 @@
         
         // Получить initData из URL или Telegram WebApp
         const urlParams = new URLSearchParams(window.location.search);
-        const initDataFromUrl = urlParams.get('initData');
-        const initData = initDataFromUrl || tg.initData || '';
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
         
-        console.log('InitData:', initData);
+        // Попробуем получить initData из разных источников
+        let initData = '';
+        
+        // 1. Из query параметров URL
+        const initDataFromUrl = urlParams.get('initData');
+        
+        // 2. Из hash фрагмента (tgWebAppData)
+        const tgWebAppData = hashParams.get('tgWebAppData');
+        
+        // 3. Из Telegram WebApp API
+        const tgInitData = tg.initData || '';
+        
+        // Выбираем первый доступный
+        if (tgWebAppData) {
+            initData = decodeURIComponent(tgWebAppData);
+            console.log('InitData from hash fragment (tgWebAppData):', initData);
+        } else if (initDataFromUrl) {
+            initData = initDataFromUrl;
+            console.log('InitData from URL params:', initData);
+        } else if (tgInitData) {
+            initData = tgInitData;
+            console.log('InitData from Telegram WebApp:', initData);
+        } else {
+            console.warn('No initData found in any source');
+        }
+        
+        console.log('Final initData:', initData);
         console.log('Telegram WebApp object:', tg);
         
         // Показать информацию о Telegram WebApp
@@ -187,15 +220,30 @@
                     throw new Error('InitData отсутствует');
                 }
                 
-                const response = await fetch('{{ route("miniapp.profile") }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'X-Telegram-Init-Data': initData
-                    },
-                    body: JSON.stringify({ initData: initData })
-                });
+                // Попробуем сначала обычный endpoint, затем debug
+                let response;
+                try {
+                    response = await fetch('{{ route("miniapp.profile") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'X-Telegram-Init-Data': initData
+                        },
+                        body: JSON.stringify({ initData: initData })
+                    });
+                } catch (error) {
+                    console.log('Main endpoint failed, trying debug endpoint:', error);
+                    response = await fetch('/miniapp/profile-debug', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'X-Telegram-Init-Data': initData
+                        },
+                        body: JSON.stringify({ initData: initData })
+                    });
+                }
                 
                 const data = await response.json();
                 
@@ -231,6 +279,7 @@
                             <small>${dbUser.is_online ? 'Онлайн' : 'Оффлайн'}</small>
                         </div>
                         ` : ''}
+                        ${data.message ? '<div class="mt-2"><small class="text-info">' + data.message + '</small></div>' : ''}
                     `;
                 } else {
                     profileContent.innerHTML = '<div class="alert alert-warning">Данные пользователя не найдены</div>';
@@ -253,15 +302,30 @@
                     throw new Error('InitData отсутствует');
                 }
                 
-                const response = await fetch('{{ route("miniapp.debug") }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'X-Telegram-Init-Data': initData
-                    },
-                    body: JSON.stringify({ initData: initData })
-                });
+                // Попробуем сначала обычный endpoint, затем debug
+                let response;
+                try {
+                    response = await fetch('{{ route("miniapp.debug") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'X-Telegram-Init-Data': initData
+                        },
+                        body: JSON.stringify({ initData: initData })
+                    });
+                } catch (error) {
+                    console.log('Main debug endpoint failed, trying debug endpoint:', error);
+                    response = await fetch('/miniapp/debug-debug', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'X-Telegram-Init-Data': initData
+                        },
+                        body: JSON.stringify({ initData: initData })
+                    });
+                }
                 
                 const data = await response.json();
                 
@@ -269,12 +333,54 @@
                     throw new Error(data.error || 'Ошибка загрузки debug информации');
                 }
                 
-                debugContent.innerHTML = `<div class="debug-info">${JSON.stringify(data.debug_info, null, 2)}</div>`;
+                debugContent.innerHTML = `<div class="debug-info">${JSON.stringify(data.debug_info || data, null, 2)}</div>`;
                 
             } catch (error) {
                 console.error('Ошибка загрузки debug информации:', error);
                 document.getElementById('debug-content').innerHTML = 
                     `<div class="alert alert-danger">Ошибка: ${error.message}</div>`;
+            }
+        }
+        
+        // Тестирование соединения
+        async function testConnection() {
+            try {
+                const testContent = document.getElementById('test-content');
+                testContent.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm me-2" role="status"></div>Тестируем...</div>';
+                
+                const response = await fetch('/miniapp/test-post', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'X-Telegram-Init-Data': initData
+                    },
+                    body: JSON.stringify({ 
+                        initData: initData,
+                        test: 'connection',
+                        timestamp: new Date().toISOString()
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    testContent.innerHTML = `
+                        <div class="alert alert-success">
+                            <strong>✅ Соединение работает!</strong><br>
+                            Статус: ${response.status}<br>
+                            Время: ${data.timestamp}
+                        </div>
+                        <div class="debug-info">${JSON.stringify(data, null, 2)}</div>
+                    `;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${data.error || 'Unknown error'}`);
+                }
+                
+            } catch (error) {
+                console.error('Ошибка тестирования соединения:', error);
+                document.getElementById('test-content').innerHTML = 
+                    `<div class="alert alert-danger">❌ Ошибка соединения: ${error.message}</div>`;
             }
         }
         
