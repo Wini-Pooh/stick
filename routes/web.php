@@ -18,6 +18,11 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+// Тестовая страница для проверки работы сервера
+Route::get('/server-test', function () {
+    return view('test-page');
+});
+
 // Тестовая страница для Mini App
 Route::get('/test', function () {
     return view('test');
