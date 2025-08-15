@@ -1,0 +1,54 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
+
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register web routes for your application. These
+| routes are loaded by the RouteServiceProvider and all of them will
+| be assigned to the "web" middleware group. Make something great!
+|
+*/
+
+Route::get('/', function () {
+    return view('welcome');
+});
+
+// Тестовая страница для Mini App
+Route::get('/test', function () {
+    return view('test');
+});
+
+Auth::routes();
+
+Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+
+// Telegram Mini App routes
+Route::prefix('miniapp')->group(function () {
+    // Главная страница Mini App (без middleware для первоначальной загрузки)
+    Route::get('/', [App\Http\Controllers\MiniAppController::class, 'index'])->name('miniapp.index');
+    
+    // Test endpoint без проверки подписи
+    Route::get('/test', [App\Http\Controllers\MiniAppController::class, 'testEndpoint'])->name('miniapp.test');
+    
+    // Статистика (открытый endpoint для демонстрации)
+    Route::get('/stats', [App\Http\Controllers\MiniAppController::class, 'userStats'])->name('miniapp.stats');
+    
+    // Защищенные API endpoints с проверкой подписи Telegram
+    Route::middleware([App\Http\Middleware\VerifyTelegramInitData::class])->group(function () {
+        Route::post('/profile', [App\Http\Controllers\MiniAppController::class, 'profile'])->name('miniapp.profile');
+        Route::post('/debug', [App\Http\Controllers\MiniAppController::class, 'debugInfo'])->name('miniapp.debug');
+    });
+});
+
+// Telegram Bot routes
+Route::prefix('telegram')->group(function () {
+    Route::post('/webhook', [App\Http\Controllers\TelegramBotController::class, 'webhook'])->name('telegram.webhook');
+    Route::get('/set-webhook', [App\Http\Controllers\TelegramBotController::class, 'setWebhook'])->name('telegram.set-webhook');
+    Route::get('/webhook-info', [App\Http\Controllers\TelegramBotController::class, 'getWebhookInfo'])->name('telegram.webhook-info');
+    Route::get('/delete-webhook', [App\Http\Controllers\TelegramBotController::class, 'deleteWebhook'])->name('telegram.delete-webhook');
+});

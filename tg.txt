@@ -1,0 +1,234 @@
+APIАвторизация пользователя
+Авторизация пользователя
+Авторизация связана с идентификатором ключа шифрования клиента: auth_key_id . После авторизации передавать дополнительные параметры в методы не требуется.
+
+Чтобы войти как бот , следуйте этим инструкциям » .
+
+Также доступен альтернативный способ входа в систему с использованием QR-кода » .
+
+Отправка проверочного кода
+Примеры реализаций: telegram для android , tdlib .
+
+Для отображения корректно отформатированного и проверенного поля номера телефона конструктор help.countriesList можно получить с помощью метода help.getCountriesList . Конфигурация
+help.countriesList и другие значения конфигурации затем используются, как описано здесь » .
+
+Затем на телефон пользователя отправляется SMS-сообщение с кодом авторизации с помощью функции auth.sendCode .
+Однако это не всегда так, если используются будущие токены авторизации:
+
+Будущие токены авторизации
+При вызове auth.logOut в ранее авторизованном сеансе сервер может вернуть future_auth_token, который должен быть сохранен в локальной базе данных.
+A future_auth_tokenтакже содержится в auth.authorization , возвращаемом при входе в систему.
+База данных будущих токенов авторизации всегда должна содержать не более 20 токенов: удаляйте старые токены по мере добавления новых, чтобы не превышать этот лимит.
+При вызове auth.sendCode все будущие токены авторизации, имеющиеся в базе данных, должны быть предоставлены codeSettings.logout_tokens.
+Если какой-либо из будущих токенов авторизации соответствует учётной записи, в которую мы пытаемся войти, и срок действия токена не истёк:
+
+Если 2FA не включен, auth.sendCode напрямую вернет конструктор auth.sentCodeSuccess с информацией о сеансе, указывая, что сеанс авторизован.
+Если включена 2FA , auth.sendCode вернет SESSION_PASSWORD_NEEDEDошибку RPC, попросив пользователя ввести пароль 2FA , без отправки какого-либо кода авторизации.
+В противном случае система отправит код авторизации, используя следующую логику:
+
+Типы кодов
+codeSettings#ad253d78 flags:# allow_flashcall:flags.0?true current_number:flags.1?true allow_app_hash:flags.4?true allow_missed_call:flags.5?true allow_firebase:flags.7?true unknown_number:flags.9?true logout_tokens:flags.6?Vector<bytes> token:flags.8?string app_sandbox:flags.8?Bool = CodeSettings;
+
+auth.sentCodeTypeApp#3dbb5986 length:int = auth.SentCodeType;
+auth.sentCodeTypeSms#c000bba2 length:int = auth.SentCodeType;
+auth.sentCodeTypeCall#5353e5a7 length:int = auth.SentCodeType;
+auth.sentCodeTypeFlashCall#ab03c6d9 pattern:string = auth.SentCodeType;
+auth.sentCodeTypeMissedCall#82006484 prefix:string length:int = auth.SentCodeType;
+auth.sentCodeTypeEmailCode#f450f59b flags:# apple_signin_allowed:flags.0?true google_signin_allowed:flags.1?true email_pattern:string length:int reset_available_period:flags.3?int reset_pending_date:flags.4?int = auth.SentCodeType;
+auth.sentCodeTypeSetUpEmailRequired#a5491dea flags:# apple_signin_allowed:flags.0?true google_signin_allowed:flags.1?true = auth.SentCodeType;
+auth.sentCodeTypeFragmentSms#d9565c39 url:string length:int = auth.SentCodeType;
+auth.sentCodeTypeFirebaseSms#9fd736 flags:# nonce:flags.0?bytes play_integrity_project_id:flags.2?long play_integrity_nonce:flags.2?bytes receipt:flags.1?string push_timeout:flags.1?int length:int = auth.SentCodeType;
+auth.sentCodeTypeSmsWord#a416ac81 flags:# beginning:flags.0?string = auth.SentCodeType;
+auth.sentCodeTypeSmsPhrase#b37794af flags:# beginning:flags.0?string = auth.SentCodeType;
+
+auth.sentCode#5e002502 flags:# type:auth.SentCodeType phone_code_hash:string next_type:flags.1?auth.CodeType timeout:flags.2?int = auth.SentCode;
+auth.sentCodeSuccess#2390fe44 authorization:auth.Authorization = auth.SentCode;
+
+---functions---
+
+auth.sendCode#a677244f phone_number:string api_id:int api_hash:string settings:CodeSettings = auth.SentCode;
+auth.resendCode#cae47523 flags:# phone_number:string phone_code_hash:string reason:flags.0?string = auth.SentCode;
+
+auth.requestFirebaseSms#8e39261e flags:# phone_number:string phone_code_hash:string safety_net_token:flags.0?string play_integrity_token:flags.2?string ios_push_secret:flags.1?string = Bool;
+Метод auth.sendCode содержит параметры для включения/отключения использования флэш-вызовов и пропущенных вызовов, а также позволяет передавать SMS-токен, который будет включён в отправляемое SMS. Например, последний требуется в новых версиях Android для использования API приёмника SMS .
+
+Возвращенный объект auth.sentCode будет содержать несколько параметров:
+
+флаги	#	Флаги, см. условные поля TL
+тип	auth.SentCodeType	Тип телефонного кода
+телефонный_код_хэш	нить	Хэш кода телефона для сохранения и повторного использования в последующих вызовах методов
+следующий_тип	флаги .1? auth.CodeType	Тип телефонного кода, который будет отправлен следующим, если телефонный код не будет получен в течение timeoutнескольких секунд: для его отправки используйте auth.resendCode
+тайм-аут	флаги .2? int	Тайм-аут для приема телефонного кода
+Система автоматически выберет способ отправки кода авторизации; существует несколько возможных способов получения кода, о чем сообщается клиенту через typeполе конструктора auth.SentCodeType .
+
+Обратите внимание, что в некоторых случаях при регистрации или входе с помощью SMS-кода/звонка может использоваться только тип кода auth.sentCodeTypeFirebaseSms
+. В настоящее время SMS-аутентификацию Firebase поддерживают только официальные приложения: это означает, что в некоторых случаях только официальные приложения могут получить код входа/регистрации по SMS/звонку.
+Сторонние приложения могут входить в систему, используя любые другие способы доставки кодов (коды Telegram, фрагментные коды, коды электронной почты, будущие токены авторизации, QR-коды ).
+
+auth.sentCodeTypeSetUpEmailRequired : если пользователь входит в систему достаточно часто, Telegram попросит его подтвердить адрес электронной почты, на который будет отправлен код входа. Подробнее о процессе проверки
+см . здесь »
+auth.sentCodeTypeEmailCode : код был отправлен на настроенный адрес электронной почты для входа.
+auth.sentCodeTypeFragmentSms : код был отправлен через fragment.com : откройте указанный url, чтобы войти на платформу Fragment с помощью своего кошелька и просмотреть код.
+auth.sentCodeTypeApp : код был отправлен как уведомление службы Telegram всем остальным сеансам, вошедшим в систему.
+auth.sentCodeTypeFirebaseSms : процесс входа в Firebase, только для официальных приложений.
+На Android может быть получен только если установлен флаг codeSettings . Клиент должен передать полученный auth.sentCodeTypeFirebaseSms . / в SafetyNet Attestation API / Google Play Integrity API , а затем передать полученный объект JWS в auth.requestFirebaseSms . / вместе с и . Если метод возвращает boolTrue , код будет отправлен по SMS; в противном случае необходимо использовать метод аутентификации с auth.resendCode . Метод аутентификации также необходимо использовать, если проверка целостности устройства не удалась, и не удалось получить токен для вызова auth.requestFirebaseSms : в этом случае причина ошибки проверки целостности устройства должна быть передана в auth.resendCode в . allow_firebase
+nonceplay_integrity_noncesafety_net_tokenplay_integrity_tokenphone_numberphone_code_hash
+next_type
+next_typereason
+На iOS может быть получено только в том случае, если токен устройства для Apple Push был передан в codeSettings . token.
+Затем клиент ждет нового push-уведомления в течение auth.sentCodeTypeFirebaseSms . push_timeoutсекунд.
+Если push-уведомление не получено в течение push_timeoutсекунд, next_typeнеобходимо использовать метод аутентификации с auth.resendCode .
+Если push-уведомление получено с полями receiptи ios_push_secret, и значение receiptполя совпадает с codeSettings . receipt, значение ios_push_secretпередается в auth.requestFirebaseSms . ios_push_secret, вместе с phone_numberи phone_code_hash.
+Если метод возвращает boolTrue , код будет отправлен по SMS; в противном случае next_typeнеобходимо использовать метод аутентификации с auth.resendCode .
+Метод next_typeаутентификации также необходимо использовать, если проверка целостности устройства не удалась, и не удалось получить секрет для вызова auth.requestFirebaseSms : в этом случае причина ошибки проверки целостности устройства должна быть передана в auth.resendCode в reason.
+auth.sentCodeTypeSms : код был отправлен по SMS.
+auth.sentCodeTypeSmsWord : код был отправлен в SMS, содержащем одно слово, которое и является кодом SMS для использования.
+Флаг beginning, если установлен, содержит первую букву секретного слова.
+auth.sentCodeTypeSmsPhrase : код был отправлен в SMS-сообщении, содержащем фразу из нескольких слов, которые и являются SMS-кодом.
+Флаг beginning, если установлен, содержит первое слово секретной фразы.
+auth.sentCodeTypeCall : пользователь получит телефонный звонок, и синтезированный голос сообщит пользователю код подтверждения, который необходимо ввести.
+auth.sentCodeTypeFlashCall : код будет отправлен через флэш-звонок, который будет немедленно закрыт.
+В этом случае кодом телефона будет сам номер телефона, просто убедитесь, что номер телефона соответствует указанному шаблону (см. auth.sentCodeTypeFlashCall ).
+auth.sentCodeTypeMissedCall : код будет отправлен посредством флеш-звонка, который будет немедленно прерван.
+Последние цифры номера телефона, с которого поступил звонок, — это код, который пользователь должен ввести вручную.
+Будущие токены авторизации »
+Если сообщение timeoutдоходит до телефона слишком долго (секунд), можно вызвать метод auth.resendCode для повторной отправки кода типа next_type. Если ситуация повторится, можно использовать auth.resendCode с кодом , next_typeполученным в результате предыдущего вызова auth.resendCode . Для отмены кода подтверждения используйте auth.cancelCode .
+
+Подтверждение электронной почты
+auth.sentCodeTypeSetUpEmailRequired#a5491dea flags:# apple_signin_allowed:flags.0?true google_signin_allowed:flags.1?true = auth.SentCodeType;
+
+emailVerifyPurposeLoginSetup#4345be73 phone_number:string phone_code_hash:string = EmailVerifyPurpose;
+
+emailVerificationCode#922e55a9 code:string = EmailVerification;
+emailVerificationGoogle#db909ec2 token:string = EmailVerification;
+emailVerificationApple#96d074fd token:string = EmailVerification;
+
+account.sentEmailCode#811f854f email_pattern:string length:int = account.SentEmailCode;
+
+account.emailVerifiedLogin#e1bb0d61 email:string sent_code:auth.SentCode = account.EmailVerified;
+
+emailVerifyPurposeLoginChange#527d22eb = EmailVerifyPurpose;
+account.emailVerified#2b96cd1b email:string = account.EmailVerified;
+
+---functions---
+
+account.sendVerifyEmailCode#98e037bb purpose:EmailVerifyPurpose email:string = account.SentEmailCode;
+account.verifyEmail#32da4cf purpose:EmailVerifyPurpose verification:EmailVerification = account.EmailVerified;
+auth.resetLoginEmail#7e960193 phone_number:string phone_code_hash:string = auth.SentCode;
+Telegram может возвращать тип кода auth.sentCodeTypeSetUpEmailRequired в конструкторе auth.sentCode , возвращаемом методом auth.sendCode .
+В этом случае клиенты должны попросить пользователя подтвердить адрес электронной почты, который будет использоваться для получения кода входа, следующим образом:
+
+Если установлены флаги google_signin_allowedили , пользователи могут напрямую подтвердить свою электронную почту с помощью Google/Apple ID, как указано здесь (Google ID) » и здесь (Apple ID) » . После получения токена идентификатора вызовите account.verifyEmail , указав следующие параметры:apple_signin_allowed
+
+purpose- Конструктор emailVerifyPurposeLoginSetup
+purpose.phone_number- Номер телефона, используемый с auth.sendCode
+purpose.phone_code_hash- Хеш кода телефона, содержащийся в конструкторе auth.sentCode , возвращаемый auth.sendCode
+verification- emailVerificationGoogle или emailVerificationApple
+verification.token- Идентификационный токен, возвращаемый API Google ID.
+В случае успеха метод account.verifyEmail вернет конструктор account.emailVerifiedLogin с конструктором auth.sentCode , который следует обрабатывать как обычно » .
+
+В противном случае попросите пользователя ввести адрес электронной почты, а затем вызовите account.sendVerifyEmailCode , указав следующие параметры:
+
+email- Адрес электронной почты
+purpose- Конструктор emailVerifyPurposeLoginSetup
+purpose.phone_number- Номер телефона, используемый с auth.sendCode
+purpose.phone_code_hash- Хеш кода телефона, содержащийся в конструкторе auth.sentCode , возвращаемый auth.sendCode
+После того как пользователь получит и введет код подтверждения, вызовите account.verifyEmail , указав следующие параметры:
+
+purpose- Конструктор emailVerifyPurposeLoginSetup
+purpose.phone_number- Номер телефона, используемый с auth.sendCode
+purpose.phone_code_hash- Хеш кода телефона, содержащийся в конструкторе auth.sentCode , возвращаемый auth.sendCode
+verification- emailVerificationCode
+verification.code- Код подтверждения, полученный пользователем.
+В случае успеха метод account.verifyEmail вернет конструктор account.emailVerifiedLogin с конструктором auth.sentCode , который следует обрабатывать как обычно » .
+
+Если пользователь не может получить доступ к своему адресу электронной почты, можно запросить сброс адреса электронной почты с помощью auth.resetLoginEmail .
+
+Чтобы изменить адрес электронной почты для входа после входа в систему, передайте emailVerifyPurposeLoginChange как purpose, следуя точно такому же процессу входа с использованием Google ID/Apple ID/кода электронной почты, как описано выше: в случае успеха метод account.verifyEmail вернет конструктор account.emailVerified .
+
+Войти/зарегистрироваться
+Когда пользователь вводит проверочный код, необходимо использовать метод auth.signIn для его проверки и, возможно, входа пользователя в систему.
+
+Если код введен правильно, но метод возвращает auth.authorizationSignUpRequired , это означает, что учетная запись с таким номером телефона еще не существует: пользователю необходимо предоставить основную информацию, принять условия обслуживания, а затем необходимо вызвать новый метод регистрации пользователя ( auth.signUp ).
+
+2FA
+При попытке входа с помощью auth.signIn может быть возвращена ошибка 400 SESSION_PASSWORD_NEEDED , если у пользователя включена двухфакторная аутентификация. В этом случае необходимо следовать инструкциям по аутентификации SRP 2FA .
+
+Чтобы настроить двухфакторную авторизацию для уже авторизованной учетной записи, следуйте документации по аутентификации SRP 2FA .
+
+Подтверждение входа
+authorization#ad01d61d flags:# current:flags.0?true official_app:flags.1?true password_pending:flags.2?true encrypted_requests_disabled:flags.3?true call_requests_disabled:flags.4?true unconfirmed:flags.5?true hash:long device_model:string platform:string system_version:string api_id:int app_name:string app_version:string date_created:int date_active:int ip:string country:string region:string = Authorization;
+
+account.authorizations#4bff8ea0 authorization_ttl_days:int authorizations:Vector<Authorization> = account.Authorizations;
+
+updateNewAuthorization#8951abef flags:# unconfirmed:flags.0?true hash:long date:flags.0?int device:flags.0?string location:flags.0?string = Update;
+
+---functions---
+
+account.getAuthorizations#e320c158 = account.Authorizations;
+
+account.changeAuthorizationSettings#40f48462 flags:# confirmed:flags.3?true hash:long encrypted_requests_disabled:flags.0?Bool call_requests_disabled:flags.1?Bool = Bool;
+
+account.resetAuthorization#df77f3bc hash:long = Bool;
+При входе в систему другие сеансы, в которых уже выполнен вход, получат обновление updateNewAuthorization .
+Если unconfirmedфлаг установлен, клиенты должны вывести уведомление с вопросом о том, распознаёт ли пользователь этот сеанс.
+
+Если пользователь нажимает кнопку «Да», вызовите account.changeAuthorizationSettings с новым сеансом hashи confirmedустановленным флагом, подтверждая указанный сеанс.
+
+Если пользователь нажимает кнопку «Нет», вызывается account.resetAuthorization с новым сеансом hashи выполняется выход из указанного сеанса.
+
+Если пользователь не предпримет никаких действий, сеанс будет автоматически подтвержден authorization_autoconfirm_periodчерез несколько секунд после входа в систему (см. соответствующий параметр конфигурации клиента » ).
+
+Аннулирование кодов входа
+Серверы Telegram автоматически аннулируют коды входа, если пользователь отправляет их в другой чат Telegram, либо пересылая их, либо отправляя их внутри сообщения. Однако клиенты также должны вручную и немедленно аннулировать коды входа, если пользователь пытается сделать снимок экрана или переслать сообщение, отправленное пользователем службы уведомлений о входе (ID 777000), содержащее коды входа.
+
+Если входящее сообщение:
+
+Отправлено пользователем службы уведомлений о входе в систему (ID 777000)
+И это текстовое сообщение (не медиа)
+И содержит один или несколько кодов входа, определенных как последовательность из 5–7 десятичных цифр, которые могут чередоваться или сопровождаться любым количеством -символов ( пример реализации » )
+Является ли это:
+
+Скриншот сделан пользователем
+ИЛИ пересылается пользователем в любой чат
+Следует вызвать account.invalidateSignInCodes , передав извлеченный логин codes(без любых -символов).
+
+---functions---
+
+account.invalidateSignInCodes#ca8ae8ba codes:Vector<string> = Bool;
+Тестовые аккаунты
+Для каждого номера телефона установлено ограничение на количество входов в систему в день (например, 5, но это число может измениться), после чего API будет возвращать ошибку FLOOD до следующего дня. Этого может быть недостаточно для тестирования реализации потоков авторизации пользователей в клиентских приложениях.
+
+Существует несколько зарезервированных префиксов телефонных номеров для проверки корректности обработки вашим приложением перенаправлений между контроллерами доменов, регистрации, входа и двухфакторной аутентификации. Эти номера доступны только на тестовых контроллерах доменов (их IP-адреса для TCP-транспорта доступны на панели инструментов разработки API после получения api_id , формат URI для HTTPS/WebSocket-транспорта).
+
+Если вы хотите эмулировать приложение пользователя, связанного с номером DC X, достаточно указать номер телефона в формате 99966XYYYY, где YYYY — случайные числа, при регистрации пользователя. Такой пользователь всегда получит код подтверждения входа XXXXX (номер DC, повторённый пять раз). Обратите внимание, что значение X должно быть в диапазоне от 1 до 3, поскольку тестовых DC всего 3. При достижении лимита флуда для любого тестового номера просто выберите другой номер (изменяя случайную часть YYYY).
+
+Не храните важную или конфиденциальную информацию в сообщениях таких тестовых аккаунтов; любой желающий может воспользоваться упрощенным механизмом авторизации — и мы периодически стираем всю хранящуюся там информацию.
+
+Продолжайте процедуру авторизации пользователей в производственных контроллерах доменов только после того, как убедитесь, что все работает правильно на тестовых контроллерах доменов, чтобы избежать превышения лимитов потока.
+
+Чтобы помочь вам работать на производственных контроллерах доменов, логины с тем же номером телефона, с которым api_idбыл зарегистрирован, имеют более щедрые ограничения на флуд.
+
+Мы уполномочены
+В результате авторизации клиентский ключ auth_key_id становится связанным с пользователем, и каждый последующий вызов API с этим ключом будет выполняться с использованием идентификатора этого пользователя. Метод авторизации сам возвращает соответствующего пользователя. Рекомендуется сразу же сохранить идентификатор пользователя локально в привязке к ключу.
+
+Лишь небольшая часть методов API доступна неавторизованным пользователям:
+
+auth.sendCode
+auth.resendCode
+account.getPassword
+auth.checkPassword
+auth.checkPhone
+auth.signUp
+auth.signIn
+auth.importАвторизация
+help.getConfig
+help.getNearestDc
+help.getAppUpdate
+help.getCdnConfig
+langpack.getLangPack
+langpack.getStrings
+langpack.getDifference
+langpack.getLanguages
+langpack.getLanguage
+Другие методы приведут к ошибке: 401 UNAUTHORIZED .
