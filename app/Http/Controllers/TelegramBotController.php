@@ -157,8 +157,19 @@ class TelegramBotController extends Controller
                 break;
                 
             case 'lotto_results':
+            case 'all_results':
                 $this->answerCallbackQuery($callbackQueryId, 'Загружаются результаты...');
                 $this->sendResults($chatId);
+                break;
+                
+            case 'my_results':
+                $this->answerCallbackQuery($callbackQueryId, 'Загружаются ваши результаты...');
+                $this->sendMyResults($chatId, $telegramUser);
+                break;
+                
+            case 'play_lotto':
+                $this->answerCallbackQuery($callbackQueryId, 'Открываем лото...');
+                $this->sendMiniAppButton($chatId);
                 break;
                 
             case 'rules':
@@ -233,6 +244,84 @@ class TelegramBotController extends Controller
             $this->sendMessage($chatId, $message);
         } catch (\Exception $e) {
             $this->sendMessage($chatId, "❌ Ошибка получения результатов: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Отправка результатов пользователя
+     */
+    private function sendMyResults($chatId, $telegramUser)
+    {
+        if (!$telegramUser) {
+            $this->sendMessage($chatId, "❌ Ошибка: пользователь не найден в системе.");
+            return;
+        }
+
+        try {
+            // Получаем билеты пользователя за последние 30 дней
+            $tickets = \App\Models\LottoTicket::with('lottoGame')
+                ->where('telegram_user_id', $telegramUser->id)
+                ->where('created_at', '>=', now()->subDays(30))
+                ->orderBy('created_at', 'desc')
+                ->limit(20)
+                ->get();
+
+            if ($tickets->isEmpty()) {
+                $this->sendMessage($chatId, "📋 У вас пока нет билетов.\n\n🎰 Используйте /start чтобы купить свой первый билет!");
+                return;
+            }
+
+            // Статистика
+            $totalTickets = $tickets->count();
+            $totalSpent = $tickets->sum('stars_paid');
+            $totalWon = $tickets->where('is_winner', true)->sum('winnings');
+            $winCount = $tickets->where('is_winner', true)->count();
+            $winRate = $totalTickets > 0 ? round(($winCount / $totalTickets) * 100, 1) : 0;
+
+            $message = "📊 <b>ВАШИ РЕЗУЛЬТАТЫ</b>\n\n";
+            $message .= "🎟️ <b>Статистика за 30 дней:</b>\n";
+            $message .= "• Куплено билетов: {$totalTickets}\n";
+            $message .= "• Потрачено: {$totalSpent} ⭐\n";
+            $message .= "• Выиграно: {$totalWon} ⭐\n";
+            $message .= "• Процент побед: {$winRate}%\n";
+            
+            $balance = $totalWon - $totalSpent;
+            if ($balance > 0) {
+                $message .= "• 💰 Общий доход: +{$balance} ⭐\n";
+            } elseif ($balance < 0) {
+                $message .= "• 📉 Общий убыток: {$balance} ⭐\n";
+            } else {
+                $message .= "• ⚖️ Баланс: 0 ⭐\n";
+            }
+
+            $message .= "\n🎟️ <b>Последние билеты:</b>\n\n";
+
+            foreach ($tickets->take(10) as $ticket) {
+                $date = $ticket->created_at->format('d.m H:i');
+                $status = '';
+                
+                if ($ticket->is_winner === null) {
+                    $status = '⏳ Ожидает результата';
+                } elseif ($ticket->is_winner) {
+                    $status = "🎉 Выигрыш: {$ticket->winnings} ⭐";
+                } else {
+                    $status = '😔 Проигрыш';
+                }
+
+                $message .= "{$date} - {$ticket->ticket_number}\n";
+                $message .= "🎰 {$ticket->lottoGame->name} | {$status}\n\n";
+            }
+
+            // Текущий баланс звёзд
+            if ($telegramUser->stars_balance > 0) {
+                $message .= "💰 <b>Ваш баланс звёзд: {$telegramUser->stars_balance} ⭐</b>\n\n";
+                $message .= "<i>💡 Звёзды от выигрышей зачисляются автоматически</i>";
+            }
+
+            $this->sendMessage($chatId, $message);
+
+        } catch (\Exception $e) {
+            $this->sendMessage($chatId, "❌ Ошибка получения ваших результатов: " . $e->getMessage());
         }
     }
 
@@ -582,12 +671,17 @@ class TelegramBotController extends Controller
             // Отправляем подтверждение пользователю
             $this->sendPaymentConfirmation($message['chat']['id'], $ticket);
 
+            // Запускаем обработку результата лотереи через 1 минуту
+            \App\Jobs\ProcessLotteryResult::dispatch($ticket->id, $message['chat']['id'])
+                ->delay(now()->addMinute());
+
             Log::info('✅ Lotto ticket payment confirmed', [
                 'ticket_id' => $ticket->id,
                 'ticket_number' => $ticket->ticket_number,
                 'user_id' => $ticket->telegram_user_id,
                 'game_id' => $ticket->lotto_game_id,
                 'payment_charge_id' => $payment['telegram_payment_charge_id'],
+                'lottery_result_job_scheduled' => true,
             ]);
         } else {
             Log::error('❌ No ticket_id in successful payment payload', [
@@ -609,7 +703,8 @@ class TelegramBotController extends Controller
         $text .= "🎰 Игра: {$game->name}\n";
         $text .= "💰 Потенциальный выигрыш: {$game->getPotentialWinnings()} ⭐\n";
         $text .= "🎲 Шанс выигрыша: " . ($game->win_chance * 100) . "%\n\n";
-        $text .= "⏰ Розыгрыш пройдёт сегодня в 23:00 МСК\n";
+        $text .= "⏰ Результат розыгрыша будет известен через 1 минуту!\n";
+        $text .= "🎊 Ожидайте сообщение с результатом...\n\n";
         $text .= "🍀 Удачи!";
 
         Http::post($this->botUrl . '/sendMessage', [
