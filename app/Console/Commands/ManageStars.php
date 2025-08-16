@@ -201,7 +201,7 @@ class ManageStars extends Command
             }
 
             // Увеличиваем баланс пользователя (если есть такое поле)
-            if ($telegramUser->hasAttribute('stars_balance')) {
+            if (array_key_exists('stars_balance', $telegramUser->getAttributes())) {
                 $telegramUser->stars_balance += $amount;
                 $telegramUser->save();
             }
