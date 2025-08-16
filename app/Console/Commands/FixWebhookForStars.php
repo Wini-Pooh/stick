@@ -150,11 +150,25 @@ class FixWebhookForStars extends Command
         $this->line("📋 Allowed Updates: " . implode(', ', $allowedUpdates));
         
         try {
-            $response = Http::timeout(10)->post($this->botUrl . '/setWebhook', [
+            // Первый способ - через form data с JSON-строкой
+            $response = Http::timeout(10)->asForm()->post($this->botUrl . '/setWebhook', [
                 'url' => $webhookUrl,
-                'allowed_updates' => $allowedUpdates,
-                'drop_pending_updates' => true // Удалить накопившиеся updates
+                'allowed_updates' => json_encode($allowedUpdates),
+                'drop_pending_updates' => 'true'
             ]);
+            
+            $data = $response->json();
+            
+            if (!$data['ok']) {
+                // Второй способ - через JSON body
+                $this->line('⚠️ Первая попытка не удалась, пробуем второй способ...');
+                $response = Http::timeout(10)->post($this->botUrl . '/setWebhook', [
+                    'url' => $webhookUrl,
+                    'allowed_updates' => $allowedUpdates,
+                    'drop_pending_updates' => true
+                ]);
+                $data = $response->json();
+            }
             
             $data = $response->json();
             
