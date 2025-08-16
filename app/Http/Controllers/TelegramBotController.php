@@ -167,6 +167,11 @@ class TelegramBotController extends Controller
                 $this->sendMyResults($chatId, $telegramUser);
                 break;
                 
+            case 'check_balance':
+                $this->answerCallbackQuery($callbackQueryId, 'Проверяем баланс...');
+                $this->sendBalance($chatId, $telegramUser);
+                break;
+                
             case 'play_lotto':
                 $this->answerCallbackQuery($callbackQueryId, 'Открываем лото...');
                 $this->sendMiniAppButton($chatId);
@@ -739,6 +744,107 @@ class TelegramBotController extends Controller
             'text' => $text,
             'parse_mode' => 'Markdown',
         ]);
+    }
+
+    /**
+     * Отправить информацию о балансе пользователя
+     */
+    private function sendBalance($chatId, $telegramUser)
+    {
+        try {
+            if (!$telegramUser) {
+                $this->sendMessage($chatId, "❌ Пользователь не найден. Используйте /start для регистрации.");
+                return;
+            }
+
+            $balance = $telegramUser->stars_balance ?? 0;
+            
+            $text = "💰 <b>ВАШ БАЛАНС ЗВЁЗД</b>\n\n";
+            $text .= "👤 Пользователь: {$telegramUser->first_name} {$telegramUser->last_name}\n";
+            $text .= "⭐ Текущий баланс: <b>{$balance} звёзд</b>\n\n";
+
+            // Получаем последние транзакции
+            $transactions = \App\Models\StarTransaction::where('telegram_user_id', $telegramUser->id)
+                ->orderBy('created_at', 'desc')
+                ->limit(5)
+                ->get();
+
+            if ($transactions->count() > 0) {
+                $text .= "📊 <b>Последние операции:</b>\n\n";
+                
+                foreach ($transactions as $transaction) {
+                    $date = $transaction->created_at->format('d.m H:i');
+                    $type = $this->getTransactionTypeIcon($transaction->type);
+                    $amount = $transaction->amount;
+                    
+                    $text .= "{$type} {$date} - {$amount} ⭐\n";
+                    if ($transaction->reason) {
+                        $text .= "   <i>{$transaction->reason}</i>\n";
+                    }
+                    $text .= "\n";
+                }
+            } else {
+                $text .= "📋 <i>Пока нет операций с звёздами</i>\n\n";
+            }
+
+            // Статистика игр
+            $totalTickets = \App\Models\LottoTicket::where('telegram_user_id', $telegramUser->id)->count();
+            $totalWins = \App\Models\LottoTicket::where('telegram_user_id', $telegramUser->id)
+                ->where('is_winner', true)->count();
+            $totalWinnings = \App\Models\StarTransaction::where('telegram_user_id', $telegramUser->id)
+                ->where('type', 'lottery_win')->sum('amount');
+
+            $text .= "🎰 <b>Статистика игр:</b>\n";
+            $text .= "🎟️ Куплено билетов: {$totalTickets}\n";
+            $text .= "🏆 Выигрышей: {$totalWins}\n";
+            $text .= "💰 Общий выигрыш: {$totalWinnings} ⭐\n\n";
+
+            if ($balance > 0) {
+                $text .= "💡 <i>Вы можете использовать звёзды для покупки новых билетов!</i>";
+            } else {
+                $text .= "💡 <i>Купите билет лотереи и попробуйте выиграть звёзды!</i>";
+            }
+
+            $keyboard = [
+                'inline_keyboard' => [
+                    [
+                        ['text' => '🎰 Играть в лото', 'callback_data' => 'play_lotto']
+                    ],
+                    [
+                        ['text' => '📊 Мои результаты', 'callback_data' => 'my_results'],
+                        ['text' => '🏆 Все результаты', 'callback_data' => 'all_results']
+                    ]
+                ]
+            ];
+
+            $this->sendMessage($chatId, $text, $keyboard);
+
+        } catch (\Exception $e) {
+            Log::error('Error sending balance info', [
+                'chat_id' => $chatId,
+                'error' => $e->getMessage()
+            ]);
+            $this->sendMessage($chatId, "❌ Ошибка получения баланса: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Получить иконку для типа транзакции
+     */
+    private function getTransactionTypeIcon($type)
+    {
+        switch ($type) {
+            case 'lottery_win':
+                return '🎉';
+            case 'lottery_purchase':
+                return '🎟️';
+            case 'gift':
+                return '🎁';
+            case 'refund':
+                return '↩️';
+            default:
+                return '💫';
+        }
     }
 
     /**

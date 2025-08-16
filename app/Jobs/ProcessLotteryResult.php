@@ -128,7 +128,27 @@ class ProcessLotteryResult implements ShouldQueue
             $text .= "🎟️ Билет: {$ticket->ticket_number}\n";
             $text .= "🎰 Игра: {$ticket->lottoGame->name}\n";
             $text .= "💰 Ваш выигрыш: {$ticket->winnings} ⭐\n\n";
-            $text .= "✨ Звёзды уже зачислены на ваш аккаунт!\n";
+            
+            // Проверяем как были начислены звезды
+            $winningTransaction = \App\Models\StarTransaction::where('telegram_user_id', $ticket->telegram_user_id)
+                ->where('type', 'lottery_win')
+                ->where('metadata->ticket_id', $ticket->id)
+                ->latest()
+                ->first();
+            
+            if ($winningTransaction && isset($winningTransaction->metadata['payout_method'])) {
+                if ($winningTransaction->metadata['payout_method'] === 'telegram_refund') {
+                    $text .= "✅ Звёзды уже вернулись на ваш аккаунт Telegram!\n";
+                    $text .= "💫 Проверьте баланс в настройках Telegram Stars\n\n";
+                } else {
+                    $text .= "✅ Звёзды зачислены на внутренний баланс бота!\n";
+                    $text .= "💫 Используйте /balance для проверки баланса\n";
+                    $text .= "🔄 Выигрыш можно использовать для покупки новых билетов\n\n";
+                }
+            } else {
+                $text .= "✅ Звёзды зачислены на ваш баланс!\n\n";
+            }
+            
             $text .= "🎊 Спасибо за участие в нашей лотерее!\n\n";
             $text .= "🎮 Хотите попробовать ещё раз? Используйте /start";
         } else {
@@ -147,7 +167,10 @@ class ProcessLotteryResult implements ShouldQueue
                     ['text' => '🎰 Играть снова', 'callback_data' => 'play_lotto'],
                 ],
                 [
-                    ['text' => '📊 Мои результаты', 'callback_data' => 'my_results'],
+                    ['text' => '� Мой баланс', 'callback_data' => 'check_balance'],
+                    ['text' => '�📊 Мои результаты', 'callback_data' => 'my_results'],
+                ],
+                [
                     ['text' => '🏆 Все результаты', 'callback_data' => 'all_results'],
                 ]
             ]
@@ -167,33 +190,13 @@ class ProcessLotteryResult implements ShouldQueue
     private function creditStarsToUser(TelegramUser $user, int $amount, LottoTicket $ticket): void
     {
         try {
-            // Обновляем баланс пользователя в базе
-            $user->increment('stars_balance', $amount);
+            // Метод 1: Попытка возврата через реальную транзакцию покупки
+            if ($this->tryRefundOriginalPayment($user, $amount, $ticket)) {
+                return;
+            }
 
-            // Создаём запись о транзакции
-            \App\Models\StarTransaction::create([
-                'telegram_user_id' => $user->id,
-                'type' => 'lottery_win',
-                'amount' => $amount,
-                'reason' => "Выигрыш в лотерее. Билет: {$ticket->ticket_number}",
-                'transaction_id' => $ticket->ticket_number,
-                'metadata' => [
-                    'ticket_id' => $ticket->id,
-                    'game_id' => $ticket->lotto_game_id,
-                    'ticket_number' => $ticket->ticket_number,
-                    'game_name' => $ticket->lottoGame->name
-                ]
-            ]);
-
-            // Пытаемся отправить звёзды через Telegram API (если возможно)
-            $this->tryGiftStarsViaTelegram($user, $amount, $ticket);
-
-            Log::info('💰 Stars credited to user', [
-                'user_id' => $user->telegram_id,
-                'amount' => $amount,
-                'new_balance' => $user->fresh()->stars_balance,
-                'ticket_id' => $ticket->id
-            ]);
+            // Метод 2: Начисление в базу данных + специальное уведомление
+            $this->creditToDatabase($user, $amount, $ticket);
 
         } catch (\Exception $e) {
             Log::error('❌ Error crediting stars to user', [
@@ -206,38 +209,113 @@ class ProcessLotteryResult implements ShouldQueue
     }
 
     /**
-     * Попытаться отправить звёзды через Telegram API
+     * Попытаться возвратить звезды через реальную транзакцию покупки
      */
-    private function tryGiftStarsViaTelegram(TelegramUser $user, int $amount, LottoTicket $ticket): void
+    private function tryRefundOriginalPayment(TelegramUser $user, int $amount, LottoTicket $ticket): bool
     {
         try {
+            // Ищем оригинальную транзакцию покупки билета
+            $purchaseTransaction = \App\Models\StarTransaction::where('telegram_user_id', $user->id)
+                ->where('type', 'lottery_purchase')
+                ->where('metadata->ticket_id', $ticket->id)
+                ->whereNotNull('transaction_id')
+                ->first();
+
+            if (!$purchaseTransaction || !$purchaseTransaction->transaction_id) {
+                Log::info('💡 Original purchase transaction not found for refund', [
+                    'ticket_id' => $ticket->id,
+                    'user_id' => $user->telegram_id
+                ]);
+                return false;
+            }
+
             $botToken = env('TELEGRAM_BOT_TOKEN', '8410914085:AAEkR3kyRw-lvb8WRP0MRQugvpEH-fkhLp4');
             $botUrl = "https://api.telegram.org/bot{$botToken}";
 
-            // Попытка отправить подарок звёзд (если поддерживается API)
-            $response = Http::post($botUrl . '/sendGift', [
+            // Попытка возврата через Telegram API
+            $response = Http::post($botUrl . '/refundStarPayment', [
                 'user_id' => $user->telegram_id,
-                'gift_id' => 'star_gift_' . $amount, // Псевдо ID подарка
-                'text' => "🎉 Ваш выигрыш в лотерее!\nБилет: {$ticket->ticket_number}\nВыигрыш: {$amount} ⭐"
+                'telegram_payment_charge_id' => $purchaseTransaction->transaction_id,
             ]);
 
-            if (!$response->successful()) {
-                Log::info('ℹ️ Gift stars via Telegram API not available, using database balance', [
-                    'user_id' => $user->telegram_id,
-                    'amount' => $amount,
-                    'response' => $response->json()
-                ]);
+            if ($response->successful()) {
+                $data = $response->json();
+                if (isset($data['ok']) && $data['ok']) {
+                    // Создаём запись о выигрышной транзакции
+                    \App\Models\StarTransaction::create([
+                        'telegram_user_id' => $user->id,
+                        'type' => 'lottery_win',
+                        'amount' => $amount,
+                        'reason' => "Выигрыш в лотерее (возврат). Билет: {$ticket->ticket_number}",
+                        'transaction_id' => $purchaseTransaction->transaction_id,
+                        'metadata' => [
+                            'ticket_id' => $ticket->id,
+                            'game_id' => $ticket->lotto_game_id,
+                            'ticket_number' => $ticket->ticket_number,
+                            'payout_method' => 'telegram_refund',
+                            'original_transaction_id' => $purchaseTransaction->transaction_id
+                        ]
+                    ]);
+
+                    Log::info('✅ Stars refunded via Telegram API', [
+                        'user_id' => $user->telegram_id,
+                        'amount' => $amount,
+                        'ticket_id' => $ticket->id,
+                        'original_transaction' => $purchaseTransaction->transaction_id
+                    ]);
+
+                    return true;
+                }
             }
 
-        } catch (\Exception $e) {
-            Log::info('ℹ️ Telegram Stars gifting not supported, using database balance', [
-                'user_id' => $user->telegram_id,
-                'amount' => $amount,
-                'error' => $e->getMessage()
+            Log::info('💡 Telegram refund API not successful', [
+                'response' => $response->json(),
+                'status' => $response->status()
             ]);
+
+            return false;
+
+        } catch (\Exception $e) {
+            Log::info('💡 Telegram refund API not available: ' . $e->getMessage());
+            return false;
         }
     }
 
+    /**
+     * Начислить звезды в базу данных
+     */
+    private function creditToDatabase(TelegramUser $user, int $amount, LottoTicket $ticket): void
+    {
+        // Обновляем баланс пользователя в базе
+        $user->increment('stars_balance', $amount);
+
+        // Создаём запись о транзакции
+        \App\Models\StarTransaction::create([
+            'telegram_user_id' => $user->id,
+            'type' => 'lottery_win',
+            'amount' => $amount,
+            'reason' => "Выигрыш в лотерее. Билет: {$ticket->ticket_number}",
+            'transaction_id' => $ticket->ticket_number,
+            'metadata' => [
+                'ticket_id' => $ticket->id,
+                'game_id' => $ticket->lotto_game_id,
+                'ticket_number' => $ticket->ticket_number,
+                'game_name' => $ticket->lottoGame->name,
+                'payout_method' => 'database_credit'
+            ]
+        ]);
+
+        Log::info('💰 Stars credited to database', [
+            'user_id' => $user->telegram_id,
+            'amount' => $amount,
+            'new_balance' => $user->fresh()->stars_balance,
+            'ticket_id' => $ticket->id
+        ]);
+    }
+
+    /**
+     * Попытаться отправить звёзды через Telegram API
+     */
     /**
      * Отправить сообщение об ошибке
      */
