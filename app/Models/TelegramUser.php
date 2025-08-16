@@ -24,6 +24,7 @@ class TelegramUser extends Model
         'first_seen_at',
         'last_seen_at',
         'visits_count',
+        'stars_balance',
     ];
 
     protected $casts = [
