@@ -1,0 +1,192 @@
+Твиттер
+Главная
+Часто задаваемые вопросы
+Приложения
+API
+Протокол
+Схема
+Обзор
+Звездные цены
+Как это работает?
+API платежей
+Пошаговый процесс
+Выход в эфир
+Часто задаваемые вопросы
+API для бот-платежей за цифровые товары и услуги
+Telegram Stars: оплата цифровых товаров и не только
+Telegram Bot Payments — это бесплатная и открытая платформа, позволяющая продавцам принимать платежи за товары и услуги от пользователей Telegram. Эта страница посвящена оплате цифровых товаров и услуг . Если вы заинтересованы в продаже физических товаров и услуг , посетите нашу специальную страницу .
+
+Примечание: эта статья предназначена для разработчиков ботов и владельцев магазинов. Если вам нужен общий обзор платежей в Telegram, загляните в блог Telegram .
+
+Если вы новичок в работе с ботами Telegram и хотите узнать, как создать и настроить бота, ознакомьтесь с разделами «Введение в боты» и «Часто задаваемые вопросы о ботах» .
+
+Обзор
+Платежи легко интегрируются в Telegram, что позволяет вам продавать цифровые товары и услуги в обмен на Telegram Stars — виртуальный предмет в приложении, который впоследствии можно конвертировать в вознаграждение.
+
+С помощью API платежей вы сможете:
+
+Отправляйте счета в любой чат , включая группы и каналы.
+Создавайте счета-фактуры, которые могут быть пересланы и использованы несколькими покупателями для заказа товаров.
+Используйте встроенный режим , чтобы помочь пользователям демонстрировать ваши товары и услуги своим друзьям и сообществам.
+Принимайте платежи от пользователей в мобильных и настольных приложениях .
+Попробуйте @DurgerKingBot создать тестовый счет-фактуру или начните сообщение @DurgerKingBot ...в любом чате для получения встроенного счета-фактуры .
+Посетите Demo Shop, чтобы увидеть пример канала Telegram, используемого в качестве виртуальной витрины .
+Звездные цены
+Ниже представлена таблица, показывающая, сколько пользователь платит за определённое количество звёзд, и какой чистый доход получает разработчик. Обратите внимание, что эти суммы могут различаться в зависимости от пользователя из-за НДС и других применимых сборов, которые Telegram не контролирует.
+
+
+Как это работает?
+Вы создаёте бота , который предлагает цифровые товары и услуги пользователям Telegram. Торговые боты могут отправлять специально отформатированные сообщения со счетами пользователям, группам или каналам. Если ваш бот поддерживает встроенный режим , пользователи также могут отправлять счета в другие чаты через бота , в том числе в чаты 1 на 1 с другими пользователями.
+
+В сообщениях о счёте есть фотография и описание товара, а также заметная кнопка «Оплатить» . Нажатие на неё открывает специальный платёжный интерфейс в приложении Telegram.
+
+Поскольку ваш бот продаёт цифровые товары и услуги, все транзакции должны осуществляться в Telegram Stars с тегом валюты XTR. Пользователи могут приобрести Stars в Telegram, используя стандартные встроенные покупки Apple и Google или через @PremiumBot , а затем использовать их для покупки цифровых товаров и услуг у вас.
+
+Интерфейс выставления счетов за цифровые товары и услуги удобен и не требует от пользователей ввода какой-либо личной информации, например полного имени, адреса доставки или данных кредитной карты.
+
+Подробная информация и пошаговые инструкции доступны ниже.
+
+API платежей
+В этом разделе более подробно рассматриваются платежи через API бота Telegram.
+
+Этот раздел посвящен продаже цифровых товаров и услуг . Если вы заинтересованы в продаже физических товаров и услуг , посетите нашу специальную страницу .
+
+Создание Telegram-бота
+Чтобы начать принимать платежи, вам понадобится бот в Telegram . Если у вас ещё нет бота, создайте его с помощью @BotFather@merchantbot . В рамках данного документа мы предполагаем, что вы дали боту имя .
+
+Осуществление платежей
+Необходимые методы для реализации вашего платежа вы найдете в разделе «Платежи» Руководства по API бота .
+
+Короче говоря, вам необходимо:
+
+Отправить счет через sendInvoice ( currency: «XTR»)
+Ждите обновления с полемpre_checkout_query
+Утвердите или отмените заказ через answerPreCheckoutQuery
+Ждите обновления с полемsuccessful_payment
+Сохраните SuccessfulPayment — telegram_payment_charge_idон может понадобиться для возврата средств в будущем.
+Доставлять товары и услуги, приобретенные пользователем
+Вы можете обнаружить, что некоторые методы API для платежей запрашивают provider_token. Этот параметр необходим только для продажи физических товаров и услуг — для цифровых товаров его можно оставить пустым.
+
+Тестирование платежей
+Вы можете бесплатно тестировать платежи в Telegram Stars, подключив своего бота к специальной тестовой среде Telegram. Чтобы узнать больше о доступе к тестовой среде и её использовании, ознакомьтесь с нашей документацией .
+
+Пошаговый процесс
+Полный список доступных методов и объектов см . в разделе «API бота: Платежи» . Обязательно укажите правильный набор параметров, учитывающих тип продаваемых вами товаров, различая цифровые и физические заказы.
+
+1. Создать счет
+Пользователь связывается с нами @merchantbotи запрашивает покупку. Бот формирует сообщение-счёт с описанием товара или услуги и суммой к оплате (в звёздах Telegram). Существует два способа создания счёта:
+
+А. Счет-фактура бота
+Используйте метод sendInvoice для создания счёта и отправки его в чат. В качестве параметра provider_token можно передать пустую строку , поскольку счёт предназначен для цифровых товаров и услуг.
+
+Сообщения со счетами и кнопкой оплаты можно отправлять в чаты любого типа : личные чаты с пользователем, группы или каналы. В результате сообщение со счетом будет выглядеть следующим образом:
+
+Кнопка «Присоединиться»
+Счет бота
+
+Не забудьте указать XTRв currencyполе, так как все продажи цифровых товаров и услуг осуществляются исключительно в Telegram Stars.
+
+B. Встроенный счет-фактура
+Если @merchantbotподдерживается встроенный режим , вы можете использовать inputInvoiceMessageContent , чтобы позволить пользователям делиться счетами за ваши товары и услуги в личных чатах с друзьями, а также в своих группах и каналах. Эти счета будут иметь кнопку «Оплатить» , которую можно использовать несколько раз.
+
+Кнопка «Присоединиться»
+Встроенный счет-фактура
+
+2. Выберите режим пересылки
+Существует два способа обработки пересланных копий счетов-фактур, которые контролируются параметром start_parameter в методе sendInvoice .
+
+А. Счёт для нескольких чатов. В пересылаемых копиях отображается кнопка «Оплатить» , которую могут нажать несколько пользователей и попытаться оплатить товары или услуги. Встроенные счета всегда являются счётами для нескольких чатов.
+B. Счёт, выставленный в одном чате. Счёт можно оплатить только из того чата, в который он был отправлен. Пересланные копии содержат кнопку URL с глубокой ссылкой на бота. Глубокую ссылку можно использовать для создания аналогичного счёта в чате с ботом, для отображения сообщения об ошибке или для других целей. Подробнее о диплинкинге »
+Если счёт за один чат отправлен в чат с @merchantbot, его можно оплатить только один раз . Если счёт за один чат отправлен в любой другой чат, его можно оплатить много раз многими пользователями.
+
+Чтобы лучше понять, как это работает, попробуйте включить параметр «Оплата с пересылки» при создании счетов с помощью нашего демо-бота @ShopBot .
+
+Независимо от того, доступна ли в счете кнопка «Оплатить» , торговый бот всегда имеет право решить, принимать или нет новые платежи по конкретному счету.
+
+3. Предварительная проверка
+Пользователь покупает Stars в Telegram (при необходимости), затем нажимает кнопку оплаты. В этот момент API бота отправляет боту обновление с полем pre_checkout_query , содержащим всю доступную информацию о заказе.
+
+Your bot must reply using answerPrecheckoutQuery within 10 seconds after receiving this update or the transaction is canceled.
+
+The bot may return an error if it can't process the order for any reason. We highly recommend specifying a reason for failure to complete the order in human readable form (e.g. "Sorry, we're all out of rubber duck digital posters! Would you be interested in a cast iron bear digital poster instead?"). Telegram will display this reason to the user.
+
+Warning: It is critical to make sure your bot only accepts multiple payments when the order can be processed correctly. This is especially important if you are using multi-chat, inline or single-chat, multi-use invoices.
+
+4. Checkout
+If the bot confirms the order and the payment is successful, the API will send a receipt message of the type successful_payment from the user. Once your bot receives this message, it should proceed with sending the digital goods or services purchased by the user.
+
+Warning: You must always check that you received a successful_payment update before delivering the goods or services purchased by the user – simply answering a pre_checkout_query does not guarantee a successful order or payment.
+
+If the invoice message was sent in the chat with @merchantbot, it becomes a Receipt in the UI for the user – they can open this receipt at any time and see all the details of the transaction:
+
+Квитанция
+Receipt
+
+If the message was sent to any other chat, the Pay button remains and can be used again. It is up to the merchant bot whether to actually accept multiple payments.
+
+Going Live
+Once you've tested everything and confirmed that your payments implementation works, you're ready to go live – to do so, simply switch to the production environment.
+
+Before your merchant bot goes into live mode, please ensure the following:
+
+Live Checklist
+We highly recommend turning on 2-step verification for the Telegram account that controls your bot.
+You as the bot owner have full responsibility in case any conflicts or disputes arise. You must be prepared to correctly process disputes and chargebacks.
+To prevent any misunderstandings and possible legal issues, make sure your bot can respond to a /terms command (or offers a similarly easy way of accessing your Terms and Conditions). Your Terms and Conditions should be written in a clear way and easy to understand for your users. The users must confirm that they have read and agree to your terms before they make the purchase.
+Your bot must provide support for its customers, either by responding to a /support command or by some other clearly communicated means. Users must have a clear way of contacting you about their purchases and you must process their support requests in a timely fashion. You must notify your users that Telegram support or bot support will not be able to help them with purchases made via your bot.
+Verify your server hardware and software are stable. Use backups to make sure that you don't lose data about your users' payments.
+Make sure that you have read, understood and agreed to the Telegram Terms of Service and, by extension, to the Telegram Bot Platform Developer Terms of Service.
+FAQ
+Q: Can I use a different currency or payment provider?
+Payments for digital goods and services must be carried out exclusively in Telegram Stars. App stores like the Play Store for Android and the App Store for iOS have specific rules for developers regarding the sale of digital goods and services. Due to these rules, Telegram cannot display your bot or mini-app to mobile users if you attempt to sell digital goods and services via other currencies or through third-party payment providers.
+
+If you’re selling physical goods or services, you may use different currencies or payment providers. Please check out our dedicated document to learn more.
+
+Q: I run my own website to process sales, does this mean I don’t have to use Telegram Stars?
+To remain in compliance with Google’s Payment Policies 1, 2 and 4, along with Apple’s Review Guidelines 3.1.1, 3.1.1(a) and 3.1.3(b), your bot or mini app must use Telegram Stars for the sale of digital goods and services inside Telegram apps, regardless of any other web portals, apps, services or payment providers you may have set up outside the Telegram ecosystem.
+
+Q: Can I accept payment in cryptocurrency instead of Telegram Stars?
+No. All payments via bots and mini apps for digital goods and services inside Telegram apps must exclusively use Telegram Stars, in order to comply with the guidelines of the App Store and Play Store.
+
+For more details on what terms regulate your engagement with Telegram Stars, please reference Section 6.2. Digital Goods and Services of the Telegram Bot Platform Developer Terms of Service.
+
+Q: Do I need a bot to accept payments?
+Yes. If you are not a developer, you will need to either hire someone to make a bot for you (recommended), or use a bot created by a third-party company. We advise extreme caution when using services of bots that process payments for you – Telegram doesn't maintain any such bots and doesn't endorse any of the third-party bots offering these services.
+
+Q: How are disputes handled?
+Вы несёте исключительную ответственность за обработку и разрешение законных споров пользователей в отношении цифровых товаров и услуг, продаваемых вашими ботами или мини-приложениями. Ваши боты и мини-приложения должны иметь возможность реагировать на команды /paysupportи обрабатывать запросы пользователей, связанные с платежами, а вы обязаны своевременно оказывать поддержку клиентам.
+
+API Telegram Bot также позволяет вам легко и независимо возвращать средства за покупки , совершенные с помощью вашего бота или мини-приложения с помощью Telegram Stars.
+
+Более подробную информацию о спорах с клиентами см. в разделе 6.2.1. Споры об оплате цифровых товаров и услуг Условий обслуживания разработчиков платформы Telegram Bot.
+
+В: Как я могу оформить возврат средств?
+Возврат средств за цифровые товары и услуги можно осуществить с помощью метода refundStarPayment в API Telegram Bot.
+
+В: Что я могу сделать с Telegram Stars?
+Звезды можно использовать для размещения рекламы в Telegram для вашего TPA или для получения вознаграждения за денежную стоимость, которую Telegram присваивает каждой звезде.
+
+Более подробную информацию об условиях, регулирующих ваше взаимодействие с Telegram Stars, см. в Разделе 6.2. « Условия обслуживания разработчиков цифровых товаров и услуг платформы Telegram Bot».
+
+В: Как обеспечить поддержку платежей в моем стороннем приложении, использующем API Telegram?
+Приглашаем вас изучить документацию по оплате MTProto .
+
+Телеграмма
+Telegram — это облачный мессенджер для мобильных устройств и компьютеров. Быстро и безопасно.
+О Telegram
+Часто задаваемые вопросы
+Приватность
+Для СМИ
+Для мобильных
+iPhone/iPad
+Андроид
+Мобильная веб-версия
+Для компьютера
+ПК/Mac/Linux
+macOS
+Веб-версия
+Платформы
+API
+Переводы
+Мгновенный просмотр
+Наверх

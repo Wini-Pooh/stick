@@ -288,6 +288,14 @@ class LottoController extends Controller
                 'user_id' => $telegramUser->id,
             ]);
 
+            Log::info('Attempting to send invoice', [
+                'telegram_id' => $telegramUser->telegram_id,
+                'ticket_id' => $ticket->id,
+                'game_name' => $game->name,
+                'price' => $game->ticket_price,
+                'bot_url' => $this->botUrl,
+            ]);
+
             // Отправляем инвойс прямо пользователю
             $response = Http::post($this->botUrl . '/sendInvoice', [
                 'chat_id' => $telegramUser->telegram_id,
@@ -295,12 +303,18 @@ class LottoController extends Controller
                 'description' => "Билет на лото с множителем x{$game->multiplier}. Потенциальный выигрыш: {$game->getPotentialWinnings()} ⭐",
                 'payload' => $payload,
                 'currency' => 'XTR', // Telegram Stars
-                'prices' => json_encode([
+                'prices' => [
                     [
                         'label' => "Билет {$game->name}",
                         'amount' => $game->ticket_price,
                     ]
-                ]),
+                ],
+            ]);
+
+            Log::info('Invoice API response', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'successful' => $response->successful(),
             ]);
 
             if ($response->successful()) {
@@ -314,6 +328,7 @@ class LottoController extends Controller
             }
 
             Log::error('Failed to send invoice', [
+                'status' => $response->status(),
                 'response' => $response->body(),
                 'ticket_id' => $ticket->id,
                 'telegram_id' => $telegramUser->telegram_id,
@@ -324,6 +339,8 @@ class LottoController extends Controller
             Log::error('Exception sending invoice', [
                 'error' => $e->getMessage(),
                 'ticket_id' => $ticket->id,
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
             ]);
             return false;
         }
