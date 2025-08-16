@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('telegram_users', function (Blueprint $table) {
-            $table->integer('stars_balance')->default(0)->after('last_activity');
+            $table->integer('stars_balance')->default(0)->after('visits_count');
         });
     }
 
