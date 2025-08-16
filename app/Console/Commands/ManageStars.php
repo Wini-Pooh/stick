@@ -290,9 +290,11 @@ class ManageStars extends Command
 
             $this->line("👤 Пользователь: {$telegramUser->first_name} {$telegramUser->last_name}");
             
-            // Показываем баланс если есть поле
-            if ($telegramUser->hasAttribute('stars_balance')) {
+            // Показываем баланс звезд
+            if (isset($telegramUser->stars_balance)) {
                 $this->line("⭐ Баланс звезд: {$telegramUser->stars_balance}");
+            } else {
+                $this->line("⭐ Баланс звезд: 0 (поле не инициализировано)");
             }
 
             // Показываем последние транзакции
