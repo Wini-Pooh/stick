@@ -31,9 +31,6 @@ class CheckStarsPaymentSetup extends Command
     public function __construct()
     {
         parent::__construct();
-        $this->botToken = env('TELEGRAM_BOT_TOKEN', '8410914085:AAEkR3kyRw-lvb8WRP0MRQugvpEH-fkhLp4');
-        $this->botUrl = "https://api.telegram.org/bot{$this->botToken}";
-        $this->webhookUrl = (config('app.url') ?: env('APP_URL') ?: 'https://tg.sticap.ru') . '/api/telegram/webhook';
     }
 
     /**
@@ -43,6 +40,14 @@ class CheckStarsPaymentSetup extends Command
     {
         $this->info('🔍 Полная проверка настройки Telegram Stars платежей');
         $this->newLine();
+
+        // Очищаем конфигурацию для получения свежих данных
+        $this->call('config:clear');
+        
+        // Инициализируем переменные после очистки кеша
+        $this->botToken = env('TELEGRAM_BOT_TOKEN', '8410914085:AAEkR3kyRw-lvb8WRP0MRQugvpEH-fkhLp4');
+        $this->botUrl = "https://api.telegram.org/bot{$this->botToken}";
+        $this->webhookUrl = (config('app.url') ?: env('APP_URL') ?: 'https://tg.sticap.ru') . '/api/telegram/webhook';
 
         // Проверяем все компоненты
         $this->checkBotToken();
@@ -221,15 +226,30 @@ class CheckStarsPaymentSetup extends Command
     {
         $this->info('⚙️ Проверка окружения...');
         
+        // Читаем .env файл напрямую для более точной проверки
+        $envPath = base_path('.env');
+        $envVars = [];
+        
+        if (file_exists($envPath)) {
+            $envContent = file_get_contents($envPath);
+            $lines = explode("\n", $envContent);
+            foreach ($lines as $line) {
+                if (strpos($line, '=') !== false && !str_starts_with(trim($line), '#')) {
+                    [$key, $value] = explode('=', $line, 2);
+                    $envVars[trim($key)] = trim($value);
+                }
+            }
+        }
+        
         $envChecks = [
-            'TELEGRAM_BOT_TOKEN' => env('TELEGRAM_BOT_TOKEN'),
-            'APP_URL' => env('APP_URL'),
-            'APP_ENV' => env('APP_ENV'),
+            'TELEGRAM_BOT_TOKEN' => $envVars['TELEGRAM_BOT_TOKEN'] ?? null,
+            'APP_URL' => $envVars['APP_URL'] ?? null,
+            'APP_ENV' => $envVars['APP_ENV'] ?? null,
         ];
         
         foreach ($envChecks as $key => $value) {
             if (empty($value)) {
-                $this->addIssue("❌ ENV {$key}", 'Не установлен');
+                $this->addIssue("❌ ENV {$key}", 'Не установлен в .env файле');
             } else {
                 $this->addCheck("✅ ENV {$key}", $value);
             }

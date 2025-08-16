@@ -150,33 +150,41 @@ class FixWebhookForStars extends Command
         $this->line("📋 Allowed Updates: " . implode(', ', $allowedUpdates));
         
         try {
-            // Первый способ - через form data с JSON-строкой
-            $response = Http::timeout(10)->asForm()->post($this->botUrl . '/setWebhook', [
+            // Очищаем конфигурацию для получения свежих ENV переменных
+            $this->call('config:clear');
+            
+            // Метод 1: через POST с JSON body
+            $response = Http::timeout(15)->post($this->botUrl . '/setWebhook', [
                 'url' => $webhookUrl,
-                'allowed_updates' => json_encode($allowedUpdates),
-                'drop_pending_updates' => 'true'
+                'allowed_updates' => $allowedUpdates,
+                'drop_pending_updates' => true,
+                'max_connections' => 40
             ]);
             
             $data = $response->json();
             
             if (!$data['ok']) {
-                // Второй способ - через JSON body
+                // Метод 2: через form data с JSON-строкой (для совместимости)
                 $this->line('⚠️ Первая попытка не удалась, пробуем второй способ...');
-                $response = Http::timeout(10)->post($this->botUrl . '/setWebhook', [
+                $response = Http::timeout(15)->asForm()->post($this->botUrl . '/setWebhook', [
                     'url' => $webhookUrl,
-                    'allowed_updates' => $allowedUpdates,
-                    'drop_pending_updates' => true
+                    'allowed_updates' => json_encode($allowedUpdates),
+                    'drop_pending_updates' => 'true',
+                    'max_connections' => '40'
                 ]);
                 $data = $response->json();
             }
             
-            $data = $response->json();
-            
             if ($data['ok']) {
                 $this->comment('✅ Webhook установлен с поддержкой Stars платежей');
                 $this->comment('✅ Накопившиеся updates очищены');
+                
+                // Ждем несколько секунд для применения изменений
+                $this->comment('⏳ Ожидание применения изменений...');
+                sleep(3);
+                
             } else {
-                $this->error('❌ Ошибка установки webhook: ' . $data['description']);
+                $this->error('❌ Ошибка установки webhook: ' . ($data['description'] ?? 'Неизвестная ошибка'));
                 $this->line('📋 Response: ' . json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
             }
         } catch (\Exception $e) {
