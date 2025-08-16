@@ -398,9 +398,15 @@ class TelegramBotController extends Controller
             'successful_payment'    // 🌟 Критично для Stars - успешный платеж
         ];
         
+        // Логируем попытку установки webhook
+        Log::info('🔧 Setting webhook with Stars support', [
+            'webhook_url' => $webhookUrl,
+            'allowed_updates' => $allowedUpdates
+        ]);
+        
         $response = Http::timeout(15)->post($this->botUrl . '/setWebhook', [
             'url' => $webhookUrl,
-            'allowed_updates' => $allowedUpdates,
+            'allowed_updates' => json_encode($allowedUpdates), // Важно! JSON-кодируем массив
             'drop_pending_updates' => true // Удалить накопившиеся updates
         ]);
 
