@@ -18,5 +18,6 @@ class VerifyCsrfToken extends Middleware
         'miniapp/test-post',
         'miniapp/save-score',
         'miniapp/game-stats',
+        'api/lotto/*',
     ];
 }

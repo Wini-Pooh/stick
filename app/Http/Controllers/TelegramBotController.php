@@ -5,7 +5,21 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use App\Models\TelegramUser;
+                [
+                    [
+                        'text' => '📋 Правила',
+                        'callback_data' => 'rules'
+                    ],
+                    [
+                        'text' => '📊 Статистика',
+                        'callback_data' => 'lotto_stats'
+                    ]
+                ]
+            ]
+        ];
+
+        $this->sendMessage($chatId, $message, $keyboard);
+    }elegramUser;
 use App\Models\TelegramUserActivity;
 
 class TelegramBotController extends Controller
@@ -29,6 +43,16 @@ class TelegramBotController extends Controller
 
         if (isset($update['message'])) {
             $this->handleMessage($update['message']);
+        }
+
+        // Обработка pre_checkout_query для платежей звёздами
+        if (isset($update['pre_checkout_query'])) {
+            $this->handlePreCheckoutQuery($update['pre_checkout_query']);
+        }
+
+        // Обработка успешных платежей
+        if (isset($update['message']['successful_payment'])) {
+            $this->handleSuccessfulPayment($update['message']);
         }
 
         return response()->json(['ok' => true]);
@@ -94,15 +118,20 @@ class TelegramBotController extends Controller
         $userName = $telegramUser ? $telegramUser->first_name : 'друг';
         $visitCount = $telegramUser ? $telegramUser->visits_count : 1;
         
-        $message = "🚀 Добро пожаловать, {$userName}!\n\n";
-        $message .= "Это ваш визит #{$visitCount} в наш Telegram Mini App.\n\n";
-        $message .= "Нажмите кнопку ниже, чтобы открыть мини-приложение:";
+        $message = "⭐ Добро пожаловать в Звёздное Лото, {$userName}!\n\n";
+        $message .= "🎰 Донатьте звёзды Telegram и участвуйте в ежедневных розыгрышах с шансом удвоить, утроить или получить в 10 раз больше звёзд!\n\n";
+        $message .= "🎯 Особенности нашего лото:\n";
+        $message .= "• Честные розыгрыши каждый день в 23:00 МСК\n";
+        $message .= "• Разные игры с множителями x2, x3, x5, x10, x20\n";
+        $message .= "• Мгновенное зачисление выигрышей\n";
+        $message .= "• Прозрачная статистика розыгрышей\n\n";
+        $message .= "Это ваш визит #{$visitCount}. Нажмите кнопку ниже, чтобы начать играть:";
 
         $keyboard = [
             'inline_keyboard' => [
                 [
                     [
-                        'text' => '🚀 Открыть Mini App',
+                        'text' => '🎰 Играть в лото',
                         'web_app' => [
                             'url' => env('APP_URL') . '/miniapp'
                         ]
@@ -111,7 +140,11 @@ class TelegramBotController extends Controller
                 [
                     [
                         'text' => '📊 Статистика',
-                        'callback_data' => 'stats'
+                        'callback_data' => 'lotto_stats'
+                    ],
+                    [
+                        'text' => '🏆 Результаты',
+                        'callback_data' => 'lotto_results'
                     ]
                 ]
             ]
@@ -125,13 +158,14 @@ class TelegramBotController extends Controller
      */
     private function sendMiniAppButton($chatId)
     {
-        $message = "🎯 Откройте наше мини-приложение для просмотра профиля и отладочной информации:";
+        $message = "� Откройте Звёздное Лото и попробуйте свою удачу!\n\n";
+        $message .= "⭐ Донатьте звёзды и выигрывайте в ежедневных розыгрышах!";
 
         $keyboard = [
             'inline_keyboard' => [
                 [
                     [
-                        'text' => '🚀 Открыть Mini App',
+                        'text' => '🎰 Звёздное Лото',
                         'web_app' => [
                             'url' => env('APP_URL') . '/miniapp'
                         ]
@@ -139,12 +173,12 @@ class TelegramBotController extends Controller
                 ],
                 [
                     [
-                        'text' => '📖 Помощь',
-                        'callback_data' => 'help'
+                        'text' => '� Правила',
+                        'callback_data' => 'rules'
                     ],
                     [
                         'text' => '📊 Статистика',
-                        'callback_data' => 'stats'
+                        'callback_data' => 'lotto_stats'
                     ]
                 ]
             ]
@@ -231,5 +265,105 @@ class TelegramBotController extends Controller
         $response = Http::post($this->botUrl . '/deleteWebhook');
         
         return response()->json($response->json());
+    }
+
+    /**
+     * Обработка pre-checkout запроса для платежей звёздами
+     */
+    private function handlePreCheckoutQuery($preCheckoutQuery)
+    {
+        $queryId = $preCheckoutQuery['id'];
+        $payload = json_decode($preCheckoutQuery['invoice_payload'], true);
+
+        Log::info('Pre-checkout query received', [
+            'query_id' => $queryId,
+            'payload' => $payload,
+            'total_amount' => $preCheckoutQuery['total_amount'],
+        ]);
+
+        // Проверяем, что билет существует и ещё не оплачен
+        if (isset($payload['ticket_id'])) {
+            $ticket = \App\Models\LottoTicket::find($payload['ticket_id']);
+            
+            if (!$ticket || $ticket->status !== 'pending') {
+                Http::post($this->botUrl . '/answerPreCheckoutQuery', [
+                    'pre_checkout_query_id' => $queryId,
+                    'ok' => false,
+                    'error_message' => 'Билет недействителен или уже оплачен',
+                ]);
+                return;
+            }
+        }
+
+        // Подтверждаем оплату
+        Http::post($this->botUrl . '/answerPreCheckoutQuery', [
+            'pre_checkout_query_id' => $queryId,
+            'ok' => true,
+        ]);
+    }
+
+    /**
+     * Обработка успешного платежа
+     */
+    private function handleSuccessfulPayment($message)
+    {
+        $payment = $message['successful_payment'];
+        $payload = json_decode($payment['invoice_payload'], true);
+
+        Log::info('Successful payment received', [
+            'payload' => $payload,
+            'payment' => $payment,
+            'chat_id' => $message['chat']['id'],
+        ]);
+
+        if (isset($payload['ticket_id'])) {
+            $ticket = \App\Models\LottoTicket::find($payload['ticket_id']);
+            
+            if (!$ticket) {
+                Log::error('Ticket not found for successful payment', $payload);
+                return;
+            }
+
+            // Обновляем билет
+            $ticket->update([
+                'status' => 'participating',
+                'purchased_at' => now(),
+                'payment_charge_id' => $payment['telegram_payment_charge_id'],
+                'payment_data' => $payment,
+            ]);
+
+            // Создаём или обновляем розыгрыш на сегодня
+            \App\Models\LottoDraw::getOrCreateTodayDraw($ticket->lotto_game_id);
+
+            // Отправляем подтверждение пользователю
+            $this->sendPaymentConfirmation($message['chat']['id'], $ticket);
+
+            Log::info('Lotto ticket payment confirmed', [
+                'ticket_id' => $ticket->id,
+                'ticket_number' => $ticket->ticket_number,
+                'user_id' => $ticket->telegram_user_id,
+            ]);
+        }
+    }
+
+    /**
+     * Отправить подтверждение оплаты
+     */
+    private function sendPaymentConfirmation($chatId, $ticket)
+    {
+        $game = $ticket->lottoGame;
+        
+        $text = "🎟️ Билет успешно оплачен!\n\n";
+        $text .= "📄 Номер билета: {$ticket->ticket_number}\n";
+        $text .= "🎰 Игра: {$game->name}\n";
+        $text .= "💰 Потенциальный выигрыш: {$game->getPotentialWinnings()} ⭐\n";
+        $text .= "🎲 Шанс выигрыша: " . ($game->win_chance * 100) . "%\n\n";
+        $text .= "⏰ Розыгрыш пройдёт сегодня в 23:00 МСК\n";
+        $text .= "🍀 Удачи!";
+
+        Http::post($this->botUrl . '/sendMessage', [
+            'chat_id' => $chatId,
+            'text' => $text,
+        ]);
     }
 }

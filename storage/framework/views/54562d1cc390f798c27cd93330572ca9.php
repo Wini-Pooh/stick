@@ -1,16 +1,16 @@
-@php
+<?php
     $fakeTgUser = session('fake_tg_user');
-@endphp
+?>
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="csrf-token" content="<?php echo e(csrf_token()); ?>">
     <title>Звёздное Лото | Telegram Mini App</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
-        window.FAKE_TG_USER = @json($fakeTgUser);
+        window.FAKE_TG_USER = <?php echo json_encode($fakeTgUser, 15, 512) ?>;
     </script>
     <style>
         * {
@@ -762,4 +762,4 @@
     </script>
 </body>
 </html>
-          
+          <?php /**PATH C:\OSPanel\domains\tgstick\resources\views/miniapp/index.blade.php ENDPATH**/ ?>

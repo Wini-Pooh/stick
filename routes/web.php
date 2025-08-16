@@ -2,10 +2,15 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\FakeTelegramAuthController;
 
 /*
 |--------------------------------------------------------------------------
 | Web Routes
+// Имитация входа через Telegram
+Route::get('/register', [FakeTelegramAuthController::class, 'showRegisterForm'])->name('fake-tg.register');
+Route::post('/register', [FakeTelegramAuthController::class, 'register'])->name('fake-tg.register.post');
+Route::get('/logout', [FakeTelegramAuthController::class, 'logout'])->name('fake-tg.logout');
 |--------------------------------------------------------------------------
 |
 | Here is where you can register web routes for your application. These

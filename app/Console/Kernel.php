@@ -12,7 +12,12 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        // Ежедневный розыгрыш лото в 23:00 МСК
+        $schedule->command('lotto:draw')
+            ->dailyAt('23:00')
+            ->timezone('Europe/Moscow')
+            ->withoutOverlapping()
+            ->runInBackground();
     }
 
     /**
