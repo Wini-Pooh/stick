@@ -92,13 +92,13 @@ class LottoController extends Controller
         ]);
 
         // Создаём инвойс для оплаты звёздами
-        $invoice = $this->createStarInvoice($telegramUser, $ticket, $game);
+        $invoiceSent = $this->createStarInvoice($telegramUser, $ticket, $game);
 
-        if (!$invoice) {
+        if (!$invoiceSent) {
             $ticket->delete();
             return response()->json([
                 'success' => false,
-                'error' => 'Ошибка создания платежа',
+                'error' => 'Ошибка отправки счёта на оплату',
             ], 500);
         }
 
@@ -118,6 +118,7 @@ class LottoController extends Controller
 
         return response()->json([
             'success' => true,
+            'message' => 'Счёт на оплату отправлен в чат с ботом. Проверьте Telegram для завершения покупки.',
             'ticket' => [
                 'id' => $ticket->id,
                 'ticket_number' => $ticket->ticket_number,
@@ -125,7 +126,6 @@ class LottoController extends Controller
                 'price' => $game->ticket_price,
                 'potential_winnings' => $game->getPotentialWinnings(),
             ],
-            'invoice_link' => $invoice,
         ]);
     }
 
@@ -288,36 +288,44 @@ class LottoController extends Controller
                 'user_id' => $telegramUser->id,
             ]);
 
-            $response = Http::post($this->botUrl . '/createInvoiceLink', [
+            // Отправляем инвойс прямо пользователю
+            $response = Http::post($this->botUrl . '/sendInvoice', [
+                'chat_id' => $telegramUser->telegram_id,
                 'title' => "Лото билет {$game->name}",
                 'description' => "Билет на лото с множителем x{$game->multiplier}. Потенциальный выигрыш: {$game->getPotentialWinnings()} ⭐",
                 'payload' => $payload,
                 'currency' => 'XTR', // Telegram Stars
-                'prices' => [
+                'prices' => json_encode([
                     [
                         'label' => "Билет {$game->name}",
                         'amount' => $game->ticket_price,
                     ]
-                ],
+                ]),
             ]);
 
             if ($response->successful()) {
                 $result = $response->json();
-                return $result['result'] ?? null;
+                Log::info('Invoice sent successfully', [
+                    'ticket_id' => $ticket->id,
+                    'telegram_id' => $telegramUser->telegram_id,
+                    'result' => $result,
+                ]);
+                return true;
             }
 
-            Log::error('Failed to create star invoice', [
+            Log::error('Failed to send invoice', [
                 'response' => $response->body(),
                 'ticket_id' => $ticket->id,
+                'telegram_id' => $telegramUser->telegram_id,
             ]);
 
-            return null;
+            return false;
         } catch (\Exception $e) {
-            Log::error('Exception creating star invoice', [
+            Log::error('Exception sending invoice', [
                 'error' => $e->getMessage(),
                 'ticket_id' => $ticket->id,
             ]);
-            return null;
+            return false;
         }
     }
 
