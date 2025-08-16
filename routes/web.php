@@ -71,10 +71,7 @@ Route::prefix('miniapp')->group(function () {
     Route::get('/user-photo/{userId}', [App\Http\Controllers\MiniAppController::class, 'getUserPhoto'])->name('miniapp.user-photo');
 });
 
-// Telegram Bot routes - API endpoints
-Route::prefix('api/telegram')->group(function () {
-    Route::post('/webhook', [App\Http\Controllers\TelegramBotController::class, 'webhook'])->name('api.telegram.webhook');
-});
+// Telegram Bot routes - API endpoints (moved to api.php for proper middleware)
 
 // Telegram Bot routes - Admin endpoints  
 Route::prefix('telegram')->group(function () {

@@ -206,7 +206,10 @@ class CheckStarsPaymentSetup extends Command
         ];
         
         foreach ($requiredMethods as $method => $description) {
-            if (strpos($content, "function {$method}") !== false || strpos($content, "function {$method}(") !== false) {
+            if (strpos($content, "function {$method}") !== false || 
+                strpos($content, "function {$method}(") !== false ||
+                preg_match("/private\s+function\s+{$method}\s*\(/", $content) ||
+                preg_match("/protected\s+function\s+{$method}\s*\(/", $content)) {
                 $this->addCheck("✅ Method {$method}", $description);
             } else {
                 $this->addIssue("❌ Method {$method}", "Отсутствует: {$description}");
@@ -311,12 +314,32 @@ class CheckStarsPaymentSetup extends Command
         $this->newLine();
         $this->info('🔧 АВТОМАТИЧЕСКОЕ ИСПРАВЛЕНИЕ:');
         
+        $hasWebhookIssues = false;
+        $hasUrlIssue = false;
+        
+        // Проверяем, какие проблемы нужно исправить
         foreach ($this->issues as $issue) {
-            if (strpos($issue['title'], 'Webhook') !== false) {
-                $this->line('  📡 Исправляем webhook...');
-                $this->call('bot:fix-webhook-stars', ['--delete' => true]);
-                break;
+            if (strpos($issue['title'], 'Webhook URL') !== false || 
+                strpos($issue['title'], 'Allowed Updates') !== false) {
+                $hasWebhookIssues = true;
             }
+            if (strpos($issue['title'], 'Webhook доступность') !== false && 
+                strpos($issue['description'], '419') !== false) {
+                $hasUrlIssue = true;
+            }
+        }
+        
+        if ($hasWebhookIssues) {
+            $this->line('  📡 Исправляем настройки webhook...');
+            $this->call('bot:fix-webhook-stars', ['--delete' => true]);
+        }
+        
+        if ($hasUrlIssue) {
+            $this->line('  🔧 Исправляем конфигурацию роутов...');
+            $this->warn('  ⚠️ ВНИМАНИЕ: Обнаружена проблема с CSRF защитой для webhook.');
+            $this->warn('  ⚠️ Webhook должен использовать API роуты вместо WEB роутов.');
+            $this->warn('  ⚠️ Проверьте, что в routes/api.php есть:');
+            $this->line('     Route::post(\'/telegram/webhook\', [TelegramBotController::class, \'webhook\']);');
         }
         
         $this->comment('✅ Автоисправление завершено. Запустите проверку снова для подтверждения.');
