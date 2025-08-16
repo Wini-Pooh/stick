@@ -400,6 +400,9 @@
         <div class="header">
             <h1>⭐ Звёздное Лото</h1>
             <p>Донатьте звёзды и выигрывайте в ежедневных розыгрышах!</p>
+            <p style="font-size: 12px; margin-top: 8px; opacity: 0.8;">
+                💡 Счёт для оплаты будет отправлен в чат с ботом
+            </p>
             <div class="user-info">
                 <div class="user-avatar" id="userAvatar">?</div>
                 <div class="user-name" id="userName">Загрузка...</div>
@@ -589,7 +592,7 @@
                                 <div class="game-stat-label">Банк</div>
                             </div>
                         </div>
-                        <button class="buy-button" onclick="buyTicket(${game.id})">
+                        <button class="buy-button" onclick="buyTicket(${game.id})" data-price="${game.ticket_price}">
                             Купить билет за ${game.ticket_price} ⭐
                         </button>
                     </div>
@@ -608,7 +611,7 @@
             try {
                 const button = event.target;
                 button.disabled = true;
-                button.textContent = 'Создание счёта...';
+                button.textContent = 'Отправка счёта...';
                 
                 const response = await fetch('/api/lotto/buy-ticket', {
                     method: 'POST',
@@ -625,13 +628,18 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    // Открываем ссылку для оплаты
-                    if (data.invoice_link) {
-                        tg.openLink(data.invoice_link);
-                        showSuccess(`Билет №${data.ticket.ticket_number} создан! Перейдите по ссылке для оплаты.`);
-                    } else {
-                        showError('Не удалось создать счёт для оплаты');
-                    }
+                    showSuccess(`Билет №${data.ticket.ticket_number} создан! ${data.message}`);
+                    
+                    // Показываем пользователю инструкцию
+                    setTimeout(() => {
+                        showSuccess('Проверьте чат с ботом @' + (tg.initDataUnsafe?.start_param || 'Stickap_bot') + ' для оплаты билета!');
+                    }, 2000);
+                    
+                    // Обновляем статистику через некоторое время
+                    setTimeout(() => {
+                        loadUserStats();
+                        loadUserTickets();
+                    }, 5000);
                 } else {
                     showError(data.error || 'Ошибка создания билета');
                 }
@@ -642,9 +650,8 @@
                 setTimeout(() => {
                     const button = event.target;
                     button.disabled = false;
-                    const game = JSON.parse(button.getAttribute('data-game') || '{}');
-                    button.textContent = `Купить билет за ${game.ticket_price || '?'} ⭐`;
-                }, 2000);
+                    button.textContent = `Купить билет за ${button.getAttribute('data-price') || '?'} ⭐`;
+                }, 3000);
             }
         }
         

@@ -131,7 +131,7 @@ class FixWebhookForStars extends Command
     {
         $this->info('🔧 Установка webhook с поддержкой Stars...');
         
-        $appUrl = env('APP_URL');
+        $appUrl = config('app.url') ?: env('APP_URL') ?: 'https://tg.sticap.ru';
         $webhookUrl = $appUrl . '/api/telegram/webhook';
         
         $this->line("🌐 App URL: {$appUrl}");

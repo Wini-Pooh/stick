@@ -5,21 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-                [
-                    [
-                        'text' => '📋 Правила',
-                        'callback_data' => 'rules'
-                    ],
-                    [
-                        'text' => '📊 Статистика',
-                        'callback_data' => 'lotto_stats'
-                    ]
-                ]
-            ]
-        ];
-
-        $this->sendMessage($chatId, $message, $keyboard);
-    }elegramUser;
+use App\Models\TelegramUser;
 use App\Models\TelegramUserActivity;
 
 class TelegramBotController extends Controller
@@ -43,6 +29,11 @@ class TelegramBotController extends Controller
 
         if (isset($update['message'])) {
             $this->handleMessage($update['message']);
+        }
+
+        // Обработка callback_query (нажатие inline кнопок)
+        if (isset($update['callback_query'])) {
+            $this->handleCallbackQuery($update['callback_query']);
         }
 
         // Обработка pre_checkout_query для платежей звёздами
@@ -115,6 +106,133 @@ class TelegramBotController extends Controller
             default:
                 $this->sendMiniAppButton($chatId);
                 break;
+        }
+    }
+
+    /**
+     * Обработка callback_query (нажатие inline кнопок)
+     */
+    private function handleCallbackQuery($callbackQuery)
+    {
+        $callbackQueryId = $callbackQuery['id'];
+        $chatId = $callbackQuery['message']['chat']['id'];
+        $data = $callbackQuery['data'] ?? '';
+        $user = $callbackQuery['from'] ?? null;
+
+        Log::info('Callback query received', [
+            'callback_query_id' => $callbackQueryId,
+            'data' => $data,
+            'chat_id' => $chatId,
+        ]);
+
+        // Создаем или обновляем пользователя в базе данных
+        $telegramUser = null;
+        if ($user) {
+            $fakeInitData = [
+                'user' => json_encode($user),
+                'auth_date' => time(),
+            ];
+            $telegramUser = TelegramUser::createOrUpdate($fakeInitData);
+            
+            // Логируем callback от пользователя
+            if ($telegramUser) {
+                TelegramUserActivity::log(
+                    $telegramUser,
+                    'bot_callback',
+                    'telegram.webhook',
+                    [
+                        'callback_data' => $data,
+                        'chat_id' => $chatId,
+                        'callback_query_id' => $callbackQueryId,
+                    ]
+                );
+            }
+        }
+
+        // Обрабатываем различные callback'и
+        switch ($data) {
+            case 'lotto_stats':
+                $this->answerCallbackQuery($callbackQueryId, 'Загружается статистика...');
+                $this->sendStats($chatId);
+                break;
+                
+            case 'lotto_results':
+                $this->answerCallbackQuery($callbackQueryId, 'Загружаются результаты...');
+                $this->sendResults($chatId);
+                break;
+                
+            case 'rules':
+                $this->answerCallbackQuery($callbackQueryId, 'Показываются правила...');
+                $this->sendTerms($chatId);
+                break;
+                
+            default:
+                $this->answerCallbackQuery($callbackQueryId, 'Неизвестное действие');
+                break;
+        }
+    }
+
+    /**
+     * Отправка ответа на callback query
+     */
+    private function answerCallbackQuery($callbackQueryId, $text = null)
+    {
+        $params = [
+            'callback_query_id' => $callbackQueryId,
+        ];
+
+        if ($text) {
+            $params['text'] = $text;
+        }
+
+        Http::post($this->botUrl . '/answerCallbackQuery', $params);
+    }
+
+    /**
+     * Отправка результатов розыгрышей
+     */
+    private function sendResults($chatId)
+    {
+        try {
+            $recentDraws = \App\Models\LottoDraw::with('lottoGame')
+                ->where('draw_date', '>=', now()->subDays(7))
+                ->orderBy('draw_date', 'desc')
+                ->limit(10)
+                ->get();
+
+            if ($recentDraws->isEmpty()) {
+                $this->sendMessage($chatId, "📋 Пока нет результатов розыгрышей.\n\nПервый розыгрыш состоится сегодня в 23:00 МСК!");
+                return;
+            }
+
+            $message = "🏆 <b>Результаты последних розыгрышей:</b>\n\n";
+            
+            foreach ($recentDraws as $draw) {
+                $date = $draw->draw_date->format('d.m.Y');
+                $game = $draw->lottoGame->name;
+                $status = $draw->status === 'completed' ? '✅' : '⏳';
+                
+                $message .= "{$status} <b>{$date}</b> - {$game}\n";
+                
+                if ($draw->status === 'completed' && $draw->winner_ticket_id) {
+                    $winnerTicket = \App\Models\LottoTicket::find($draw->winner_ticket_id);
+                    if ($winnerTicket) {
+                        $message .= "🎟️ Билет-победитель: {$winnerTicket->ticket_number}\n";
+                        $message .= "💰 Выигрыш: {$draw->total_prize} ⭐\n";
+                    }
+                } else {
+                    $message .= "👥 Участников: {$draw->total_tickets}\n";
+                    $message .= "💰 Призовой фонд: {$draw->total_prize} ⭐\n";
+                }
+                
+                $message .= "\n";
+            }
+            
+            $message .= "⏰ <i>Розыгрыши проводятся ежедневно в 23:00 МСК</i>";
+            
+            $this->sendMessage($chatId, $message);
+        } catch (\Exception $e) {
+            $this->sendMessage($chatId, "❌ Ошибка получения результатов: " . $e->getMessage());
         }
     }
 
@@ -264,6 +382,48 @@ class TelegramBotController extends Controller
     }
 
     /**
+     * Установка webhook с полной поддержкой Telegram Stars
+     */
+    public function setWebhookWithStars()
+    {
+        $webhookUrl = env('APP_URL') . '/api/telegram/webhook';
+        
+        // Все необходимые типы обновлений для полноценной работы с Stars
+        $allowedUpdates = [
+            'message',              // Обычные сообщения
+            'edited_message',       // Редактированные сообщения
+            'callback_query',       // Inline кнопки
+            'inline_query',         // Inline режим (опционально)
+            'pre_checkout_query',   // 🌟 Критично для Stars - предварительная проверка
+            'successful_payment'    // 🌟 Критично для Stars - успешный платеж
+        ];
+        
+        $response = Http::timeout(15)->post($this->botUrl . '/setWebhook', [
+            'url' => $webhookUrl,
+            'allowed_updates' => $allowedUpdates,
+            'drop_pending_updates' => true // Удалить накопившиеся updates
+        ]);
+
+        $result = $response->json();
+        
+        // Получаем обновленную информацию о webhook
+        $webhookInfo = Http::timeout(10)->get($this->botUrl . '/getWebhookInfo')->json();
+        
+        return response()->json([
+            'success' => $response->successful(),
+            'webhook_url' => $webhookUrl,
+            'allowed_updates' => $allowedUpdates,
+            'set_webhook_response' => $result,
+            'current_webhook_info' => $webhookInfo,
+            'stars_support' => [
+                'pre_checkout_query_enabled' => in_array('pre_checkout_query', $allowedUpdates),
+                'successful_payment_enabled' => in_array('successful_payment', $allowedUpdates),
+                'ready_for_stars' => $result['ok'] ?? false
+            ]
+        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
      * Получение информации о webhook
      */
     public function getWebhookInfo()
@@ -291,30 +451,70 @@ class TelegramBotController extends Controller
         $queryId = $preCheckoutQuery['id'];
         $payload = json_decode($preCheckoutQuery['invoice_payload'], true);
 
-        Log::info('Pre-checkout query received', [
+        Log::info('🌟 Pre-checkout query received', [
             'query_id' => $queryId,
             'payload' => $payload,
             'total_amount' => $preCheckoutQuery['total_amount'],
+            'currency' => $preCheckoutQuery['currency'],
+            'from_user' => $preCheckoutQuery['from']['id'] ?? 'unknown',
         ]);
 
         // Проверяем, что билет существует и ещё не оплачен
         if (isset($payload['ticket_id'])) {
             $ticket = \App\Models\LottoTicket::find($payload['ticket_id']);
             
-            if (!$ticket || $ticket->status !== 'pending') {
+            if (!$ticket) {
+                Log::error('❌ Ticket not found for pre-checkout', [
+                    'ticket_id' => $payload['ticket_id'],
+                    'query_id' => $queryId,
+                ]);
+                
                 Http::post($this->botUrl . '/answerPreCheckoutQuery', [
                     'pre_checkout_query_id' => $queryId,
                     'ok' => false,
-                    'error_message' => 'Билет недействителен или уже оплачен',
+                    'error_message' => 'Билет не найден. Попробуйте купить билет заново.',
                 ]);
                 return;
             }
+            
+            if ($ticket->status !== 'pending') {
+                Log::warning('⚠️ Ticket already processed for pre-checkout', [
+                    'ticket_id' => $ticket->id,
+                    'current_status' => $ticket->status,
+                    'query_id' => $queryId,
+                ]);
+                
+                Http::post($this->botUrl . '/answerPreCheckoutQuery', [
+                    'pre_checkout_query_id' => $queryId,
+                    'ok' => false,
+                    'error_message' => 'Билет уже обработан или недействителен.',
+                ]);
+                return;
+            }
+        } else {
+            Log::error('❌ No ticket_id in pre-checkout payload', [
+                'payload' => $payload,
+                'query_id' => $queryId,
+            ]);
+            
+            Http::post($this->botUrl . '/answerPreCheckoutQuery', [
+                'pre_checkout_query_id' => $queryId,
+                'ok' => false,
+                'error_message' => 'Некорректные данные платежа.',
+            ]);
+            return;
         }
 
         // Подтверждаем оплату
-        Http::post($this->botUrl . '/answerPreCheckoutQuery', [
+        $response = Http::post($this->botUrl . '/answerPreCheckoutQuery', [
             'pre_checkout_query_id' => $queryId,
             'ok' => true,
+        ]);
+
+        Log::info('✅ Pre-checkout query approved', [
+            'query_id' => $queryId,
+            'ticket_id' => $payload['ticket_id'],
+            'response_success' => $response->successful(),
         ]);
     }
 
@@ -326,17 +526,39 @@ class TelegramBotController extends Controller
         $payment = $message['successful_payment'];
         $payload = json_decode($payment['invoice_payload'], true);
 
-        Log::info('Successful payment received', [
+        Log::info('🌟 Successful payment received', [
             'payload' => $payload,
-            'payment' => $payment,
+            'payment_charge_id' => $payment['telegram_payment_charge_id'],
+            'provider_payment_charge_id' => $payment['provider_payment_charge_id'] ?? null,
+            'total_amount' => $payment['total_amount'],
+            'currency' => $payment['currency'],
             'chat_id' => $message['chat']['id'],
+            'user_id' => $message['from']['id'] ?? null,
         ]);
 
         if (isset($payload['ticket_id'])) {
             $ticket = \App\Models\LottoTicket::find($payload['ticket_id']);
             
             if (!$ticket) {
-                Log::error('Ticket not found for successful payment', $payload);
+                Log::error('❌ Ticket not found for successful payment', [
+                    'ticket_id' => $payload['ticket_id'],
+                    'payment_charge_id' => $payment['telegram_payment_charge_id'],
+                ]);
+                return;
+            }
+
+            // Проверяем, что билет ещё не был обработан
+            if ($ticket->status !== 'pending') {
+                Log::warning('⚠️ Ticket already processed for successful payment', [
+                    'ticket_id' => $ticket->id,
+                    'current_status' => $ticket->status,
+                    'payment_charge_id' => $payment['telegram_payment_charge_id'],
+                ]);
+                
+                // Все равно отправляем подтверждение, если билет уже участвует
+                if ($ticket->status === 'participating') {
+                    $this->sendPaymentConfirmation($message['chat']['id'], $ticket);
+                }
                 return;
             }
 
@@ -354,10 +576,17 @@ class TelegramBotController extends Controller
             // Отправляем подтверждение пользователю
             $this->sendPaymentConfirmation($message['chat']['id'], $ticket);
 
-            Log::info('Lotto ticket payment confirmed', [
+            Log::info('✅ Lotto ticket payment confirmed', [
                 'ticket_id' => $ticket->id,
                 'ticket_number' => $ticket->ticket_number,
                 'user_id' => $ticket->telegram_user_id,
+                'game_id' => $ticket->lotto_game_id,
+                'payment_charge_id' => $payment['telegram_payment_charge_id'],
+            ]);
+        } else {
+            Log::error('❌ No ticket_id in successful payment payload', [
+                'payload' => $payload,
+                'payment_charge_id' => $payment['telegram_payment_charge_id'],
             ]);
         }
     }

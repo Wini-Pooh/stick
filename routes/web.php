@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\FakeTelegramAuthController;
+use App\Http\Controllers\TelegramBotController;
 
 /*
 |--------------------------------------------------------------------------
@@ -74,6 +75,12 @@ Route::prefix('miniapp')->group(function () {
 Route::prefix('telegram')->group(function () {
     Route::post('/webhook', [App\Http\Controllers\TelegramBotController::class, 'webhook'])->name('telegram.webhook');
     Route::get('/set-webhook', [App\Http\Controllers\TelegramBotController::class, 'setWebhook'])->name('telegram.set-webhook');
+    Route::get('/set-webhook-stars', [App\Http\Controllers\TelegramBotController::class, 'setWebhookWithStars'])->name('telegram.set-webhook-stars');
     Route::get('/webhook-info', [App\Http\Controllers\TelegramBotController::class, 'getWebhookInfo'])->name('telegram.webhook-info');
     Route::get('/delete-webhook', [App\Http\Controllers\TelegramBotController::class, 'deleteWebhook'])->name('telegram.delete-webhook');
 });
+
+// Страница управления ботом
+Route::get('/bot-admin', function () {
+    return view('telegram-bot-admin');
+})->name('bot.admin');
