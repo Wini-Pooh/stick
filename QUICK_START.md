@@ -1,15 +1,21 @@
 # ⚡ Быстрый запуск системы лотереи
 
-## 🚀 На хостинге (3 команды)
+## 🚀 На хостинге (5 команд)
 
 ```bash
-# 1. Настройка
+# 1. Создание таблицы для очередей
+php8.1 artisan queue:table
+
+# 2. Запуск миграций
+php8.1 artisan migrate
+
+# 3. Настройка
 php8.1 artisan bot:check-stars-setup --fix
 
-# 2. Запуск worker'а (в фоне или отдельном терминале)
+# 4. Запуск worker'а (в фоне или отдельном терминале)
 php8.1 artisan queue:work --timeout=300 --sleep=3 --tries=3
 
-# 3. Тестирование
+# 5. Тестирование
 php8.1 artisan lottery:test --quick --user-id=ВАШ_TELEGRAM_ID
 ```
 
@@ -17,10 +23,10 @@ php8.1 artisan lottery:test --quick --user-id=ВАШ_TELEGRAM_ID
 
 ```bash
 # 1. Полный тест системы
-php artisan lottery:test --quick
+php8.1 artisan lottery:test --quick
 
 # 2. Мониторинг очереди
-php artisan queue:monitor --watch
+php8.1 artisan queue:monitor --watch
 
 # 3. Проверка настроек
 php artisan bot:check-stars-setup
@@ -37,16 +43,31 @@ php artisan bot:check-stars-setup
 ## ❗ Если что-то не работает:
 
 ```bash
-# Диагностика
+# Если ошибка "Table jobs doesn't exist"
+php8.1 artisan queue:table
+php8.1 artisan migrate
+
+# Если ошибка "is_winner cannot be null"  
+php8.1 artisan migrate
+
+# Если ошибка "chat not found" - используйте реальный ID
+php8.1 artisan lottery:test --quick --user-id=ВАШ_TELEGRAM_ID
+
+# Диагностика после исправления
 php8.1 artisan lottery:test --quick
 
 # Просмотр логов
 tail -f storage/logs/laravel.log
 
-# Перезапуск
+# Перезапуск worker'а
 php8.1 artisan queue:monitor --clear
 php8.1 artisan queue:work --timeout=300
 ```
+
+## ✅ Результат успешного теста:
+- 🎯 13-14 тестов из 14 должны пройти
+- ❌ Если "chat not found" - нормально (тестовый ID)
+- 🚀 Система готова к работе!
 
 ## 📞 Поддержка
 

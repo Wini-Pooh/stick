@@ -266,8 +266,10 @@ class TestLotterySystem extends Command
                 ProcessLotteryResult::dispatchSync($testTicket->id, $chatId);
             } else {
                 // Обычный тест - через очередь с задержкой
+                $executeTime = now()->addMinute();
                 $this->comment('⏰ Обычный режим: добавление в очередь с задержкой 1 минута');
-                ProcessLotteryResult::dispatch($testTicket->id, $chatId)->delay(now()->addMinute());
+                $this->comment("📅 Время выполнения: {$executeTime->format('H:i:s d.m.Y')} MSK");
+                ProcessLotteryResult::dispatch($testTicket->id, $chatId)->delay($executeTime);
                 
                 $pendingJobs = DB::table('jobs')->where('queue', 'default')->count();
                 $this->comment("📋 Задач в очереди: {$pendingJobs}");

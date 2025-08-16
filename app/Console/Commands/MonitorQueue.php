@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class MonitorQueue extends Command
 {
@@ -57,9 +58,13 @@ class MonitorQueue extends Command
             foreach ($jobs as $job) {
                 $payload = json_decode($job->payload, true);
                 $jobClass = $payload['displayName'] ?? 'Unknown';
-                $availableAt = date('H:i:s d.m.Y', $job->available_at);
                 
-                $this->line("• {$jobClass} - запланирована на {$availableAt}");
+                // Правильное отображение времени в московском часовом поясе
+                $availableAt = Carbon::createFromTimestamp($job->available_at)
+                    ->setTimezone('Europe/Moscow')
+                    ->format('H:i:s d.m.Y');
+                
+                $this->line("• {$jobClass} - запланирована на {$availableAt} MSK");
             }
         }
 
